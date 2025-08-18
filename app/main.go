@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 
 	"github.com/codecrafters-io/redis-starter-go/app/resp"
 )
+
+var KV sync.Map
 
 func handleConnection(conn net.Conn) {
 
@@ -18,17 +21,34 @@ func handleConnection(conn net.Conn) {
 		if err != nil {
 			conn.Write([]byte("-ERR " + err.Error() + "\r\n"))
 		} else {
-			if val.Typ == "array" {
-				if val.Array[0].Typ == "bulk" && val.Array[0].Bulk == "PING" {
-					conn.Write([]byte("+PONG" + "\r\n"))
-				}
-				if val.Array[0].Typ == "bulk" && val.Array[0].Bulk == "ECHO" {
-					if len(val.Array) == 2 {
+			if val.Typ == "array" && len(val.Array) > 0 && val.Array[0].Typ == "bulk" {
+				switch val.Array[0].Bulk {
+				case "PING":
+					conn.Write([]byte("+PONG\r\n"))
+				case "ECHO":
+					if len(val.Array) == 2 && val.Array[1].Typ == "bulk" {
 						conn.Write([]byte(fmt.Sprintf("+%s\r\n", val.Array[1].Bulk)))
 					}
+				case "SET":
+					if len(val.Array) == 3 && val.Array[1].Typ == "bulk" && val.Array[2].Typ == "bulk" {
+						KV.Store(val.Array[1].Bulk, val.Array[2].Bulk)
+						conn.Write([]byte("+OK\r\n"))
+					} else {
+						conn.Write([]byte("-ERR wrong number of arguments for 'set' command\r\n"))
+					}
+				case "GET":
+					if len(val.Array) == 2 && val.Array[1].Typ == "bulk" {
+						value, ok := KV.Load(val.Array[1].Bulk)
+						fmt.Println(value)
+						if !ok {
+							conn.Write([]byte("+-1\r\n"))
+						} else {
+							conn.Write([]byte(fmt.Sprintf("+%s\r\n", value)))
+						}
+					}
 				}
+
 			}
-			conn.Write([]byte("+Data" + "\r\n"))
 		}
 	}
 }
