@@ -5,51 +5,44 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sync"
-
-	"github.com/codecrafters-io/redis-starter-go/app/resp"
+	"strings"
 )
 
-var KV sync.Map
-
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, kv *KV) {
 
 	defer conn.Close()
-	parser := resp.NewParser(bufio.NewReader(conn))
+	parser := NewParser(bufio.NewReader(conn))
+	kv.Clients[conn.RemoteAddr().String()] = conn
 	for {
 		val, err := parser.Parse()
 		if err != nil {
-			conn.Write([]byte("-ERR " + err.Error() + "\r\n"))
-		} else {
-			if val.Typ == "array" && len(val.Array) > 0 && val.Array[0].Typ == "bulk" {
-				switch val.Array[0].Bulk {
-				case "PING":
-					conn.Write([]byte("+PONG\r\n"))
-				case "ECHO":
-					if len(val.Array) == 2 && val.Array[1].Typ == "bulk" {
-						conn.Write([]byte(fmt.Sprintf("+%s\r\n", val.Array[1].Bulk)))
-					}
-				case "SET":
-					if len(val.Array) == 3 && val.Array[1].Typ == "bulk" && val.Array[2].Typ == "bulk" {
-						KV.Store(val.Array[1].Bulk, val.Array[2].Bulk)
-						conn.Write([]byte("+OK\r\n"))
-					} else {
-						conn.Write([]byte("-ERR wrong number of arguments for 'set' command\r\n"))
-					}
-				case "GET":
-					if len(val.Array) == 2 && val.Array[1].Typ == "bulk" {
-						value, ok := KV.Load(val.Array[1].Bulk)
-						fmt.Println(value)
-						if !ok {
-							conn.Write([]byte("+-1\r\n"))
-						} else {
-							conn.Write([]byte(fmt.Sprintf("+%s\r\n", value)))
-						}
-					}
-				}
-
-			}
+			fmt.Println(err)
+			return
 		}
+		if val.Typ != "array" {
+			fmt.Println("Invalid request, expected array")
+			continue
+		}
+		if len(val.Array) == 0 {
+			fmt.Println("Invalid request, expected array length > 0")
+			continue
+		}
+		command := strings.ToUpper(val.Array[0].Bulk)
+		args := val.Array[1:]
+		fmt.Println(command, args)
+		writer := NewWriter(conn)
+		handler, ok := Handlers[command]
+		if !ok {
+			fmt.Println("Invalid command: ", command)
+			err := writer.Write(Value{Typ: "string", Str: ""})
+			if err != nil {
+				fmt.Println("Error writing response:", err)
+				break
+			}
+			continue
+		}
+		result := handler(args, kv)
+		writer.Write(result)
 	}
 }
 
@@ -60,12 +53,13 @@ func main() {
 		os.Exit(1)
 	}
 	defer l.Close()
+	kv := NewKv()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Failed to accept connection:", err)
 			continue
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, kv)
 	}
 }
