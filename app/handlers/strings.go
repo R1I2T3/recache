@@ -1,36 +1,32 @@
-package main
+package handlers
 
 import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/r1i2t3/go-redis/app/kv"
+	"github.com/r1i2t3/go-redis/app/resp"
 )
 
-var Handlers = map[string]func([]Value, *KV) Value{
-	"PING": ping,
-	"ECHO": echo,
-	"SET":  set,
-	"GET":  get,
-}
-
-func ping(val []Value, kv *KV) Value {
+func ping(val []resp.Value, kv *kv.KV) resp.Value {
 	if len(val) == 0 {
-		return Value{Typ: "string", Str: "PONG"}
+		return resp.Value{Typ: "string", Str: "PONG"}
 	}
 
-	return Value{Typ: "string", Str: val[0].Bulk}
+	return resp.Value{Typ: "string", Str: val[0].Bulk}
 }
 
-func echo(val []Value, kv *KV) Value {
+func echo(val []resp.Value, kv *kv.KV) resp.Value {
 	if len(val) == 2 && val[1].Typ == "bulk" {
-		return Value{Typ: "string", Str: val[1].Bulk}
+		return resp.Value{Typ: "string", Str: val[1].Bulk}
 	}
-	return Value{Typ: "error", Str: "ERR wrong number of arguments for 'echo' command"}
+	return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'echo' command"}
 }
 
-func get(val []Value, kv *KV) Value {
+func get(val []resp.Value, kv *kv.KV) resp.Value {
 	if len(val) != 1 {
-		return Value{Typ: "error", Str: "ERR wrong number of arguments for 'get' command"}
+		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'get' command"}
 	}
 
 	key := val[0].Bulk
@@ -39,21 +35,21 @@ func get(val []Value, kv *KV) Value {
 	value, ok := kv.SETs[key]
 	kv.SETsMu.RUnlock()
 	if !ok {
-		return Value{Typ: "null"}
+		return resp.Value{Typ: "null"}
 	}
 
 	if value.Expires > 0 && value.Expires < time.Now().UnixMilli() {
 		kv.SETsMu.Lock()
 		delete(kv.SETs, key)
 		kv.SETsMu.Unlock()
-		return Value{Typ: "null"}
+		return resp.Value{Typ: "null"}
 	}
-	return Value{Typ: "string", Str: value.Str}
+	return resp.Value{Typ: "string", Str: value.Str}
 }
 
-func set(args []Value, kv *KV) Value {
+func set(args []resp.Value, kv *kv.KV) resp.Value {
 	if len(args) < 2 {
-		return Value{Typ: "error", Str: "ERR wrong number of arguments for 'set' command"}
+		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'set' command"}
 	}
 
 	key := args[0].Bulk
@@ -74,26 +70,26 @@ func set(args []Value, kv *KV) Value {
 			keepTTL = true
 		case "EX":
 			if keepTTL {
-				return Value{Typ: "error", Str: "ERR syntax error"}
+				return resp.Value{Typ: "error", Str: "ERR syntax error"}
 			}
 			if i+1 < len(args) {
 				ex, _ = strconv.Atoi(args[i+1].Bulk)
 				i++
 			} else {
-				return Value{Typ: "error", Str: "ERR syntax error"}
+				return resp.Value{Typ: "error", Str: "ERR syntax error"}
 			}
 		case "PX":
 			if keepTTL {
-				return Value{Typ: "error", Str: "ERR syntax error"}
+				return resp.Value{Typ: "error", Str: "ERR syntax error"}
 			}
 			if i+1 < len(args) {
 				px, _ = strconv.Atoi(args[i+1].Bulk)
 				i++
 			} else {
-				return Value{Typ: "error", Str: "ERR syntax error"}
+				return resp.Value{Typ: "error", Str: "ERR syntax error"}
 			}
 		default:
-			return Value{Typ: "error", Str: "ERR syntax error"}
+			return resp.Value{Typ: "error", Str: "ERR syntax error"}
 		}
 	}
 
@@ -104,11 +100,11 @@ func set(args []Value, kv *KV) Value {
 	switch setter {
 	case "NX":
 		if exists {
-			return Value{Typ: "null"}
+			return resp.Value{Typ: "null"}
 		}
 	case "XX":
 		if !exists {
-			return Value{Typ: "null"}
+			return resp.Value{Typ: "null"}
 		}
 	}
 	expiration := int64(0)
@@ -119,7 +115,7 @@ func set(args []Value, kv *KV) Value {
 	} else if px > 0 {
 		expiration = time.Now().Add(time.Duration(px) * time.Millisecond).UnixMilli()
 	}
-	insert := Value{Typ: "string", Str: newVal, Expires: expiration}
+	insert := resp.Value{Typ: "string", Str: newVal, Expires: expiration}
 	kv.SETsMu.Lock()
 	kv.SETs[key] = insert
 	kv.SETsMu.Unlock()
@@ -128,8 +124,8 @@ func set(args []Value, kv *KV) Value {
 		if exists {
 			return oldVal
 		}
-		return Value{Typ: "null"}
+		return resp.Value{Typ: "null"}
 	}
 
-	return Value{Typ: "string", Str: "OK"}
+	return resp.Value{Typ: "string", Str: "OK"}
 }

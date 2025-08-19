@@ -6,12 +6,17 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	"github.com/r1i2t3/go-redis/app/handlers"
+	"github.com/r1i2t3/go-redis/app/kv"
+	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/writer"
 )
 
-func handleConnection(conn net.Conn, kv *KV) {
+func handleConnection(conn net.Conn, kv *kv.KV) {
 
 	defer conn.Close()
-	parser := NewParser(bufio.NewReader(conn))
+	parser := resp.NewParser(bufio.NewReader(conn))
 	kv.Clients[conn.RemoteAddr().String()] = conn
 	for {
 		val, err := parser.Parse()
@@ -30,11 +35,11 @@ func handleConnection(conn net.Conn, kv *KV) {
 		command := strings.ToUpper(val.Array[0].Bulk)
 		args := val.Array[1:]
 		fmt.Println(command, args)
-		writer := NewWriter(conn)
-		handler, ok := Handlers[command]
+		writer := writer.NewWriter(conn)
+		handler, ok := handlers.Handlers[command]
 		if !ok {
 			fmt.Println("Invalid command: ", command)
-			err := writer.Write(Value{Typ: "string", Str: ""})
+			err := writer.Write(resp.Value{Typ: "string", Str: ""})
 			if err != nil {
 				fmt.Println("Error writing response:", err)
 				break
@@ -53,7 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer l.Close()
-	kv := NewKv()
+	kv := kv.NewKv()
 	for {
 		conn, err := l.Accept()
 		if err != nil {
