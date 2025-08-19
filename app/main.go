@@ -47,6 +47,7 @@ func handleConnection(conn net.Conn, kv *kv.KV) {
 			continue
 		}
 		result := handler(args, kv)
+		fmt.Println(result)
 		writer.Write(result)
 	}
 }

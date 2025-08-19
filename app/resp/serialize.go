@@ -12,6 +12,8 @@ func (v Value) Serializer() []byte {
 		return v.serializeError()
 	case "bulk":
 		return v.serializeBulk()
+	case "integer":
+		return v.serializeInteger()
 	case "null":
 		return v.searializeNull()
 	default:
@@ -29,6 +31,14 @@ func (v Value) serializeArray() []byte {
 	for i := 0; i < len; i++ {
 		bytes = append(bytes, v.Array[i].Serializer()...)
 	}
+	return bytes
+}
+
+func (v Value) serializeInteger() []byte {
+	var bytes []byte
+	bytes = append(bytes, NUMBER)
+	bytes = append(bytes, strconv.Itoa(v.Num)...)
+	bytes = append(bytes, '\r', '\n')
 	return bytes
 }
 

@@ -6,8 +6,13 @@ import (
 )
 
 var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
-	"PING": ping,
-	"ECHO": echo,
-	"SET":  set,
-	"GET":  get,
+	"PING":   ping,
+	"ECHO":   echo,
+	"SET":    set,
+	"GET":    get,
+	"RPUSH":  rpush,
+	"LRANGE": lrange,
+	"LPUSH":  lpush,
+	"LLEN":   llen,
+	"LPOP":   lpop,
 }
