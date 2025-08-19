@@ -125,3 +125,42 @@ func lpop(args []resp.Value, kv *kv.KV) resp.Value {
 	kv.Lists[key] = list[num_pop:]
 	return resp.Value{Typ: "array", Array: values}
 }
+
+func rpop(args []resp.Value, kv *kv.KV) resp.Value {
+	if len(args) < 1 || len(args) > 2 {
+		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'rpop' command"}
+	}
+	key := args[0].Bulk
+	num_pop := 1
+	if len(args) == 2 {
+		n, err := strconv.Atoi(args[1].Bulk)
+		if err != nil {
+			return resp.Value{Typ: "error", Str: "ERR value is not an integer or out of range"}
+		}
+		if n <= 0 {
+			return resp.Value{Typ: "error", Str: "ERR count must be a positive integer"}
+		}
+		num_pop = n
+	}
+	kv.ListsMu.Lock()
+	defer kv.ListsMu.Unlock()
+	list, exists := kv.Lists[key]
+	if !exists || len(list) == 0 {
+		return resp.Value{Typ: "null"}
+	}
+	if num_pop == 1 {
+		value := list[len(list)-1]
+		kv.Lists[key] = list[:len(list)-1]
+		return resp.Value{Typ: "bulk", Bulk: value.Bulk}
+	}
+	if num_pop > len(list) {
+		num_pop = len(list)
+	}
+	start := len(list) - num_pop
+	values := make([]resp.Value, num_pop)
+	for i := 0; i < num_pop; i++ {
+		values[i] = list[len(list)-1-i]
+	}
+	kv.Lists[key] = list[:start]
+	return resp.Value{Typ: "array", Array: values}
+}
