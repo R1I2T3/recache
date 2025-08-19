@@ -23,4 +23,6 @@ var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
 	"HLEN":    hlen,
 	"HKEYS":   hkeys,
 	"HVALS":   hvals,
+	"TYPE":    typeRedis,
+	"XADD":    xadd,
 }
