@@ -27,4 +27,10 @@ var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
 	"XADD":    xadd,
 	"XRANGE":  xrange,
 	"XREAD":   xread,
+	"ZADD":    zadd,
+	"ZSCORE":  zscore,
+	"ZCARD":   zcard,
+	"ZREM":    zrem,
+	"ZRANK":   zrank,
+	"ZRANGE":  zrange,
 }

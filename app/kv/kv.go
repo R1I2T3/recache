@@ -40,6 +40,9 @@ type KV struct {
 	Streams   map[string]*Stream
 	StreamsMu sync.RWMutex
 
+	Sorteds   map[string]map[string]float64
+	SortedsMu sync.RWMutex
+
 	Clients map[string]net.Conn
 }
 
@@ -49,6 +52,7 @@ func NewKv() *KV {
 		Hashes:  map[string]map[string]resp.Value{},
 		Lists:   map[string][]resp.Value{},
 		Streams: map[string]*Stream{},
+		Sorteds: map[string]map[string]float64{},
 		Clients: map[string]net.Conn{},
 	}
 }
