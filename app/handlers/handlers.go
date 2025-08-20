@@ -6,16 +6,21 @@ import (
 )
 
 var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
-	"PING":    ping,
-	"ECHO":    echo,
-	"SET":     set,
-	"GET":     get,
-	"RPUSH":   rpush,
-	"LRANGE":  lrange,
-	"LPUSH":   lpush,
-	"LLEN":    llen,
-	"LPOP":    lpop,
-	"RPOP":    rpop,
+	"PING": ping,
+	"ECHO": echo,
+	"TYPE": typeRedis,
+	// strings command
+	"SET": set,
+	"GET": get,
+	// list commands
+	"RPUSH":  rpush,
+	"LRANGE": lrange,
+	"LPUSH":  lpush,
+	"LLEN":   llen,
+	"LPOP":   lpop,
+	"RPOP":   rpop,
+	"BLPOP":  blpop,
+	// Hash set command
 	"HSET":    hset,
 	"HGET":    hget,
 	"HEXISTS": hexists,
@@ -23,14 +28,15 @@ var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
 	"HLEN":    hlen,
 	"HKEYS":   hkeys,
 	"HVALS":   hvals,
-	"TYPE":    typeRedis,
-	"XADD":    xadd,
-	"XRANGE":  xrange,
-	"XREAD":   xread,
-	"ZADD":    zadd,
-	"ZSCORE":  zscore,
-	"ZCARD":   zcard,
-	"ZREM":    zrem,
-	"ZRANK":   zrank,
-	"ZRANGE":  zrange,
+	// Stream commands
+	"XADD":   xadd,
+	"XRANGE": xrange,
+	"XREAD":  xread,
+	// sorted set commands
+	"ZADD":   zadd,
+	"ZSCORE": zscore,
+	"ZCARD":  zcard,
+	"ZREM":   zrem,
+	"ZRANK":  zrank,
+	"ZRANGE": zrange,
 }
