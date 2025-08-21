@@ -1,6 +1,7 @@
 package kv
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -9,58 +10,19 @@ import (
 )
 
 type BlockedClient struct {
-	Ch      chan resp.Value
-	Keys    []string
-	Timeout time.Duration
+	Ch       chan bool
+	Keys     []string
+	Deadline time.Time
+	Context  map[string]string
 }
 
-var blockedClients = struct {
-	sync.Mutex
-	m map[string][]*BlockedClient
-}{m: make(map[string][]*BlockedClient)}
-
-func (kv *KV) RegisterBlockedClient(bc *BlockedClient) {
-	blockedClients.Lock()
-	defer blockedClients.Unlock()
-	for _, key := range bc.Keys {
-		blockedClients.m[key] = append(blockedClients.m[key], bc)
-	}
-}
-func (kv *KV) UnregisterBlockedClient(bc *BlockedClient) {
-	blockedClients.Lock()
-	defer blockedClients.Unlock()
-	for _, key := range bc.Keys {
-		if clients, ok := blockedClients.m[key]; ok {
-			for i, c := range clients {
-				if c == bc {
-					blockedClients.m[key] = append(clients[:i], clients[i+1:]...)
-					break
-				}
-			}
-			if len(blockedClients.m[key]) == 0 {
-				delete(blockedClients.m, key)
-			}
-		}
-	}
-}
-
-func (kv *KV) NotifyBlockedClients(key string, val resp.Value) bool {
-	blockedClients.Lock()
-	defer blockedClients.Unlock()
-	if clients, ok := blockedClients.m[key]; ok && len(clients) > 0 {
-		bc := clients[0]
-		blockedClients.m[key] = clients[1:]
-		bc.Ch <- resp.Value{Typ: "array", Array: []resp.Value{
-			{Typ: "bulk", Bulk: key},
-			val,
-		}}
-		return true
-	}
-	return false
+type StreamId struct {
+	Timestamp uint64
+	Sequence  uint64
 }
 
 type StreamEntry struct {
-	ID     string
+	ID     StreamId
 	Fields map[string]resp.Value
 }
 
@@ -76,8 +38,9 @@ type ConsumerGroup struct {
 }
 
 type Stream struct {
-	Entries []StreamEntry
-	Groups  map[string]*ConsumerGroup
+	Entries         []StreamEntry
+	Groups          map[string]*ConsumerGroup
+	LastGeneratedID string
 }
 type KV struct {
 	SETs   map[string]resp.Value
@@ -95,16 +58,92 @@ type KV struct {
 	Sorteds   map[string]map[string]float64
 	SortedsMu sync.RWMutex
 
-	Clients map[string]net.Conn
+	BlockedClientsMu sync.RWMutex
+	BlockedClients   map[string][]*BlockedClient
+	Clients          map[string]net.Conn
 }
 
 func NewKv() *KV {
+
 	return &KV{
-		SETs:    map[string]resp.Value{},
-		Hashes:  map[string]map[string]resp.Value{},
-		Lists:   map[string][]resp.Value{},
-		Streams: map[string]*Stream{},
-		Sorteds: map[string]map[string]float64{},
-		Clients: map[string]net.Conn{},
+		SETs:           map[string]resp.Value{},
+		Hashes:         map[string]map[string]resp.Value{},
+		Lists:          map[string][]resp.Value{},
+		Streams:        map[string]*Stream{},
+		Sorteds:        map[string]map[string]float64{},
+		Clients:        map[string]net.Conn{},
+		BlockedClients: map[string][]*BlockedClient{},
 	}
+}
+
+func (kv *KV) RegisterBlockedClient(bc *BlockedClient) {
+	kv.BlockedClientsMu.Lock()
+	defer kv.BlockedClientsMu.Unlock()
+	for _, key := range bc.Keys {
+		kv.BlockedClients[key] = append(kv.BlockedClients[key], bc)
+	}
+}
+
+func (kv *KV) UnregisterBlockedClient(bc *BlockedClient) {
+	kv.BlockedClientsMu.Lock()
+	defer kv.BlockedClientsMu.Unlock()
+	for _, key := range bc.Keys {
+		if clients, ok := kv.BlockedClients[key]; ok {
+			newClients := make([]*BlockedClient, 0, len(clients)-1)
+			for _, client := range clients {
+				if client != bc {
+					newClients = append(newClients, client)
+				}
+			}
+
+			if len(newClients) == 0 {
+				delete(kv.BlockedClients, key)
+			} else {
+				kv.BlockedClients[key] = newClients
+			}
+		}
+	}
+}
+
+func (kv *KV) WakeUpClients(key string, wakeAll bool) {
+	kv.BlockedClientsMu.Lock()
+	defer kv.BlockedClientsMu.Unlock()
+
+	clients, ok := kv.BlockedClients[key]
+	if !ok || len(clients) == 0 {
+		return
+	}
+	if wakeAll {
+		for _, bc := range clients {
+			select {
+			case bc.Ch <- true:
+			default:
+			}
+		}
+	} else {
+		bc := clients[0]
+		if len(clients) == 1 {
+			delete(kv.BlockedClients, key)
+		} else {
+			kv.BlockedClients[key] = clients[1:]
+		}
+		bc.Ch <- true
+	}
+}
+
+func (id StreamId) IsGreaterThan(other StreamId) bool {
+	if id.Timestamp >= other.Timestamp {
+		return true
+	}
+	return id.Timestamp == other.Timestamp && id.Sequence >= other.Sequence
+}
+func (id StreamId) IsSmallerThan(other StreamId) bool {
+	if id.Timestamp <= other.Timestamp {
+		return true
+	}
+	return id.Timestamp == other.Timestamp && id.Sequence <= other.Sequence
+}
+
+func (id StreamId) ToString() string {
+	return fmt.Sprintf("%d-%d", id.Timestamp, id.Sequence)
 }

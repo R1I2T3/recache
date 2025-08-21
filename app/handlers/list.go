@@ -15,19 +15,18 @@ func rpush(args []resp.Value, kv *kv.KV) resp.Value {
 	}
 	key := args[0].Bulk
 	values := args[1:]
+	kv.ListsMu.Lock()
+	list := kv.Lists[key]
 	for _, v := range values {
-		val := resp.Value{Typ: "bulk", Bulk: v.Bulk}
-		if kv.NotifyBlockedClients(key, val) {
-			continue
-		}
-		kv.ListsMu.Lock()
-		list := kv.Lists[key]
-		kv.Lists[key] = append([]resp.Value{val}, list...)
-		kv.ListsMu.Unlock()
+		list = append(list, resp.Value{Typ: "bulk", Bulk: v.Bulk})
 	}
-	kv.ListsMu.RLock()
-	length := len(kv.Lists[key])
-	kv.ListsMu.RUnlock()
+	kv.Lists[key] = list
+	length := len(list)
+	kv.ListsMu.Unlock()
+	if len(values) > 0 {
+		kv.WakeUpClients(key, false)
+	}
+
 	return resp.Value{Typ: "integer", Num: length}
 }
 
@@ -68,21 +67,18 @@ func lpush(args []resp.Value, kv *kv.KV) resp.Value {
 	}
 	key := args[0].Bulk
 	values := args[1:]
-
+	kv.ListsMu.Lock()
+	list := kv.Lists[key]
 	for i := len(values) - 1; i >= 0; i-- {
 		val := resp.Value{Typ: "bulk", Bulk: values[i].Bulk}
-		if kv.NotifyBlockedClients(key, val) {
-			continue
-		}
-		kv.ListsMu.Lock()
-		list := kv.Lists[key]
-		kv.Lists[key] = append([]resp.Value{val}, list...)
-		kv.ListsMu.Unlock()
+		list = append([]resp.Value{val}, list...)
 	}
-
-	kv.ListsMu.RLock()
-	length := len(kv.Lists[key])
-	kv.ListsMu.RUnlock()
+	kv.Lists[key] = list
+	length := len(list)
+	kv.ListsMu.Unlock()
+	if len(values) > 0 {
+		kv.WakeUpClients(key, false)
+	}
 	return resp.Value{Typ: "integer", Num: length}
 }
 
@@ -172,12 +168,11 @@ func rpop(args []resp.Value, kv *kv.KV) resp.Value {
 	return resp.Value{Typ: "array", Array: values}
 }
 
-func blpop(args []resp.Value, KV *kv.KV) resp.Value {
+func blpop(args []resp.Value, kV *kv.KV) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'blpop' command"}
 	}
-
-	keys := []string{}
+	keys := make([]string, 0, len(args)-1)
 	for _, a := range args[:len(args)-1] {
 		keys = append(keys, a.Bulk)
 	}
@@ -186,33 +181,33 @@ func blpop(args []resp.Value, KV *kv.KV) resp.Value {
 		return resp.Value{Typ: "error", Str: "ERR timeout is not a valid integer or out of range"}
 	}
 	timeout := time.Duration(timeoutInt) * time.Second
-
-	KV.ListsMu.Lock()
+RetryPop:
+	kV.ListsMu.Lock()
 	for _, key := range keys {
-		if list, exists := KV.Lists[key]; exists && len(list) > 0 {
+		if list, exists := kV.Lists[key]; exists && len(list) > 0 {
 			val := list[0]
-			KV.Lists[key] = list[1:]
-			KV.ListsMu.Unlock()
+			kV.Lists[key] = list[1:]
+			kV.ListsMu.Unlock()
 			return resp.Value{Typ: "array", Array: []resp.Value{
 				{Typ: "bulk", Bulk: key},
 				val,
 			}}
 		}
 	}
-	KV.ListsMu.Unlock()
-
+	kV.ListsMu.Unlock()
+	if timeout == 0 {
+		return resp.Value{Typ: "null"}
+	}
 	bc := &kv.BlockedClient{
-		Ch:      make(chan resp.Value, 1),
-		Keys:    keys,
-		Timeout: timeout,
+		Ch:       make(chan bool, 1),
+		Keys:     keys,
+		Deadline: time.Now().Add(timeout),
 	}
-	KV.RegisterBlockedClient(bc)
-
-	select {
-	case val := <-bc.Ch:
-		return val
-	case <-time.After(timeout):
-		KV.UnregisterBlockedClient(bc)
-		return resp.Value{Typ: "bulk", Bulk: ""}
+	kV.RegisterBlockedClient(bc)
+	defer kV.UnregisterBlockedClient(bc)
+	wokenUp := <-bc.Ch
+	if wokenUp {
+		goto RetryPop
 	}
+	return resp.Value{Typ: "null"}
 }
