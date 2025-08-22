@@ -40,8 +40,16 @@ type ConsumerGroup struct {
 type Stream struct {
 	Entries         []StreamEntry
 	Groups          map[string]*ConsumerGroup
-	LastGeneratedID string
+	LastGeneratedID []resp.Value
 }
+
+type ClientType struct {
+	Conn            net.Conn
+	IsInTransaction bool
+	CommandQueue    []resp.Value
+	WatchedKeys     map[string]uint64
+}
+
 type KV struct {
 	SETs   map[string]resp.Value
 	SETsMu sync.RWMutex
@@ -60,7 +68,10 @@ type KV struct {
 
 	BlockedClientsMu sync.RWMutex
 	BlockedClients   map[string][]*BlockedClient
-	Clients          map[string]net.Conn
+	Versions         map[string]uint64
+	VersionsMu       sync.Mutex
+
+	Clients map[string]*ClientType
 }
 
 func NewKv() *KV {
@@ -71,7 +82,7 @@ func NewKv() *KV {
 		Lists:          map[string][]resp.Value{},
 		Streams:        map[string]*Stream{},
 		Sorteds:        map[string]map[string]float64{},
-		Clients:        map[string]net.Conn{},
+		Clients:        map[string]*ClientType{},
 		BlockedClients: map[string][]*BlockedClient{},
 	}
 }

@@ -10,8 +10,9 @@ var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
 	"ECHO": echo,
 	"TYPE": typeRedis,
 	// strings command
-	"SET": set,
-	"GET": get,
+	"SET":  set,
+	"GET":  get,
+	"INCR": incr,
 	// list commands
 	"RPUSH":  rpush,
 	"LRANGE": lrange,

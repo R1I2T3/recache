@@ -114,3 +114,31 @@ func set(args []resp.Value, kv *kv.KV) resp.Value {
 
 	return resp.Value{Typ: "string", Str: "OK"}
 }
+
+func incr(args []resp.Value, kv *kv.KV) resp.Value {
+	if len(args) != 1 {
+		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'incr' command"}
+	}
+
+	key := args[0].Bulk
+
+	kv.SETsMu.Lock()
+	defer kv.SETsMu.Unlock()
+
+	value, exists := kv.SETs[key]
+	if !exists || value.Str == "" {
+		value = resp.Value{Typ: "string", Str: "0"}
+		kv.SETs[key] = value
+	}
+
+	num, err := strconv.Atoi(value.Str)
+	if err != nil {
+		return resp.Value{Typ: "error", Str: "ERR value is not an integer or out of range"}
+	}
+
+	num++
+	value.Str = strconv.Itoa(num)
+	kv.SETs[key] = value
+
+	return resp.Value{Typ: "string", Str: value.Str}
+}
