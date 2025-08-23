@@ -18,6 +18,7 @@ func hset(args []resp.Value, kv *kv.KV) resp.Value {
 		kv.Hashes[key] = make(map[string]resp.Value)
 	}
 	kv.Hashes[key][field] = resp.Value{Typ: "bulk", Bulk: value}
+	incrementVersion(key, kv)
 	return resp.Value{Typ: "integer", Num: 1}
 }
 
@@ -48,6 +49,7 @@ func hdel(args []resp.Value, kv *kv.KV) resp.Value {
 	if hash, exists := kv.Hashes[key]; exists {
 		if _, exists := hash[field]; exists {
 			delete(hash, field)
+			incrementVersion(key, kv)
 			return resp.Value{Typ: "integer", Num: 1}
 		}
 	}

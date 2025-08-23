@@ -104,7 +104,7 @@ func set(args []resp.Value, kv *kv.KV) resp.Value {
 	kv.SETsMu.Lock()
 	kv.SETs[key] = insert
 	kv.SETsMu.Unlock()
-
+	incrementVersion(key, kv)
 	if get {
 		if exists {
 			return oldVal
@@ -139,6 +139,6 @@ func incr(args []resp.Value, kv *kv.KV) resp.Value {
 	num++
 	value.Str = strconv.Itoa(num)
 	kv.SETs[key] = value
-
+	incrementVersion(key, kv)
 	return resp.Value{Typ: "string", Str: value.Str}
 }

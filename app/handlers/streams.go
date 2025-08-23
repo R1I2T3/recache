@@ -67,6 +67,7 @@ func xadd(args []resp.Value, kV *kv.KV) resp.Value {
 		Fields: fields,
 	}
 	stream.Entries = append(stream.Entries, entry)
+	incrementVersion(key, kV)
 	kV.WakeUpClients(key, true)
 	return resp.Value{Typ: "bulk", Bulk: id.ToString()}
 }

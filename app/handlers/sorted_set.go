@@ -43,6 +43,7 @@ func zadd(args []resp.Value, kvStore *kv.KV) resp.Value {
 		returns = 0
 	}
 	sorted_set[value] = score
+	incrementVersion(key, kvStore)
 	return resp.Value{Typ: "integer", Num: returns}
 }
 

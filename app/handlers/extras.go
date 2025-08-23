@@ -43,3 +43,9 @@ func typeRedis(val []resp.Value, kv *kv.KV) resp.Value {
 	}
 	return resp.Value{Typ: "string", Str: "none"}
 }
+
+func incrementVersion(key string, kv *kv.KV) {
+	kv.VersionsMu.Lock()
+	kv.Versions[key]++
+	kv.VersionsMu.Unlock()
+}

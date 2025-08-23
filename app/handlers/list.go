@@ -26,7 +26,7 @@ func rpush(args []resp.Value, kv *kv.KV) resp.Value {
 	if len(values) > 0 {
 		kv.WakeUpClients(key, false)
 	}
-
+	incrementVersion(key, kv)
 	return resp.Value{Typ: "integer", Num: length}
 }
 
@@ -79,6 +79,7 @@ func lpush(args []resp.Value, kv *kv.KV) resp.Value {
 	if len(values) > 0 {
 		kv.WakeUpClients(key, false)
 	}
+	incrementVersion(key, kv)
 	return resp.Value{Typ: "integer", Num: length}
 }
 
@@ -126,6 +127,7 @@ func lpop(args []resp.Value, kv *kv.KV) resp.Value {
 	values := make([]resp.Value, num_pop)
 	copy(values, list[:num_pop])
 	kv.Lists[key] = list[num_pop:]
+	incrementVersion(key, kv)
 	return resp.Value{Typ: "array", Array: values}
 }
 
@@ -165,6 +167,7 @@ func rpop(args []resp.Value, kv *kv.KV) resp.Value {
 		values[i] = list[len(list)-1-i]
 	}
 	kv.Lists[key] = list[:start]
+	incrementVersion(key, kv)
 	return resp.Value{Typ: "array", Array: values}
 }
 
@@ -188,6 +191,7 @@ RetryPop:
 			val := list[0]
 			kV.Lists[key] = list[1:]
 			kV.ListsMu.Unlock()
+			incrementVersion(key, kV)
 			return resp.Value{Typ: "array", Array: []resp.Value{
 				{Typ: "bulk", Bulk: key},
 				val,
@@ -208,6 +212,7 @@ RetryPop:
 	wokenUp := <-bc.Ch
 	if wokenUp {
 		goto RetryPop
+
 	}
 	return resp.Value{Typ: "null"}
 }

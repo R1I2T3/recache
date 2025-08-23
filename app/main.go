@@ -13,22 +13,6 @@ import (
 	"github.com/r1i2t3/go-redis/app/writer"
 )
 
-func handleExec(writer *writer.Writer, kV *kv.KV, client *kv.ClientType) resp.Value {
-	defer func() {
-		client.IsInTransaction = false
-		client.CommandQueue = make([]resp.Value, 0)
-		client.WatchedKeys = make(map[string]uint64)
-	}()
-	for _, cmd := range client.CommandQueue {
-		result := handlers.Handlers[cmd.Array[0].Bulk](cmd.Array[1:], kV)
-		if err := writer.Write(result); err != nil {
-			return resp.Value{Typ: "error", Str: "ERR error writing response"}
-		}
-	}
-	client.CommandQueue = nil
-	return resp.Value{Typ: "simple", Str: "OK"}
-}
-
 func isValidRequest(val resp.Value) bool {
 	if val.Typ != "array" {
 		fmt.Println("Invalid request, expected array")
@@ -41,58 +25,24 @@ func isValidRequest(val resp.Value) bool {
 	return true
 }
 
-func handleTransactionCommands(command string, val resp.Value, writer *writer.Writer, kV *kv.KV, client *kv.ClientType) bool {
-	switch command {
-	case "EXEC":
-		result := handleExec(writer, kV, client)
-		writer.Write(result)
-		return true
-	case "DISCARD":
-		client.IsInTransaction = false
-		client.CommandQueue = make([]resp.Value, 0)
-		client.WatchedKeys = make(map[string]uint64)
-		writer.Write(resp.Value{Typ: "string", Str: "OK"})
-		return true
-	default:
-		client.CommandQueue = append(client.CommandQueue, val)
-		writer.Write(resp.Value{Typ: "string", Str: "QUEUED"})
-		return true
-	}
-}
-
-func handleNonTransactionCommands(command string, args []resp.Value, writer *writer.Writer, kV *kv.KV, client *kv.ClientType) bool {
-	if command == "MULTI" {
-		client.IsInTransaction = true
-		client.CommandQueue = make([]resp.Value, 0)
-		client.WatchedKeys = make(map[string]uint64)
-		writer.Write(resp.Value{Typ: "string", Str: "OK"})
-		return true
-	}
-	handler, ok := handlers.Handlers[command]
-	if !ok {
-		fmt.Println("Invalid command: ", command)
-		err := writer.Write(resp.Value{Typ: "string", Str: ""})
-		if err != nil {
-			fmt.Println("Error writing response:", err)
-		}
-		return true
-	}
-	result := handler(args, kV)
-	fmt.Println("Result for command:", command, "is", result)
-	writer.Write(result)
-	return false
-}
-
 func handleConnection(conn net.Conn, kV *kv.KV) {
 	defer conn.Close()
 	parser := resp.NewParser(bufio.NewReader(conn))
+	kV.ClientsMu.Lock()
 	client := &kv.ClientType{
 		Conn:            conn,
 		IsInTransaction: false,
+		CommandQueue:    make([]resp.Value, 0),
+		WatchedKeys:     make(map[string]uint64),
 	}
 	kV.Clients[conn.RemoteAddr().String()] = client
-
+	kV.ClientsMu.Unlock()
 	writer := writer.NewWriter(conn)
+	defer func() {
+		kV.ClientsMu.Lock()
+		delete(kV.Clients, conn.RemoteAddr().String())
+		kV.ClientsMu.Unlock()
+	}()
 	for {
 		val, err := parser.Parse()
 		if err != nil {
@@ -106,11 +56,11 @@ func handleConnection(conn net.Conn, kV *kv.KV) {
 		args := val.Array[1:]
 
 		if client.IsInTransaction {
-			if handleTransactionCommands(command, val, writer, kV, client) {
+			if handlers.HandleTransactionCommands(command, val, writer, kV, client) {
 				continue
 			}
 		} else {
-			if handleNonTransactionCommands(command, args, writer, kV, client) {
+			if handlers.HandleNonTransactionCommands(command, args, writer, kV, client) {
 				continue
 			}
 		}

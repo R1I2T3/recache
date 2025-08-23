@@ -68,10 +68,12 @@ type KV struct {
 
 	BlockedClientsMu sync.RWMutex
 	BlockedClients   map[string][]*BlockedClient
-	Versions         map[string]uint64
-	VersionsMu       sync.Mutex
 
-	Clients map[string]*ClientType
+	Versions      map[string]uint64
+	VersionsMu    sync.Mutex
+	TransactionMu sync.Mutex
+	Clients       map[string]*ClientType
+	ClientsMu     sync.Mutex
 }
 
 func NewKv() *KV {
@@ -84,6 +86,7 @@ func NewKv() *KV {
 		Sorteds:        map[string]map[string]float64{},
 		Clients:        map[string]*ClientType{},
 		BlockedClients: map[string][]*BlockedClient{},
+		Versions:       map[string]uint64{},
 	}
 }
 
