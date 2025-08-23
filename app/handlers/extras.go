@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"strings"
+
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
 )
@@ -48,4 +51,21 @@ func incrementVersion(key string, kv *kv.KV) {
 	kv.VersionsMu.Lock()
 	kv.Versions[key]++
 	kv.VersionsMu.Unlock()
+}
+
+func getConfig(val []resp.Value, config *config.Config) resp.Value {
+	if len(val) != 2 || val[0].Typ != "bulk" || strings.ToUpper(val[0].Bulk) != "GET" {
+		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'config' command"}
+	}
+	vals := val[1:]
+	result := make([]resp.Value, 0)
+	for _, v := range vals {
+		switch v.Bulk {
+		case "dir":
+			result = append(result, resp.Value{Typ: "bulk", Bulk: "dir"}, resp.Value{Typ: "bulk", Bulk: config.Dir})
+		case "dbfilename":
+			result = append(result, resp.Value{Typ: "bulk", Bulk: "dbFileName"}, resp.Value{Typ: "bulk", Bulk: config.DbFileName})
+		}
+	}
+	return resp.Value{Typ: "array", Array: result}
 }

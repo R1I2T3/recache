@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
 	"github.com/r1i2t3/go-redis/app/writer"
@@ -87,7 +88,7 @@ func HandleTransactionCommands(command string, val resp.Value, writer *writer.Wr
 	}
 }
 
-func HandleNonTransactionCommands(command string, args []resp.Value, writer *writer.Writer, kV *kv.KV, client *kv.ClientType) bool {
+func HandleNonTransactionCommands(command string, args []resp.Value, writer *writer.Writer, kV *kv.KV, client *kv.ClientType, config *config.Config) bool {
 	if command == "WATCH" {
 		result := handleWatch(args, kV, client)
 		writer.Write(result)
@@ -102,6 +103,11 @@ func HandleNonTransactionCommands(command string, args []resp.Value, writer *wri
 	}
 	if command == "EXEC" || command == "DISCARD" {
 		writer.Write(resp.Value{Typ: "error", Str: "ERR EXEC without MULTI"})
+		return true
+	}
+	if command == "CONFIG" {
+		result := getConfig(args, config)
+		writer.Write(result)
 		return true
 	}
 	handler, ok := Handlers[command]

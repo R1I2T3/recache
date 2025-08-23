@@ -2,16 +2,30 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/handlers"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
 	"github.com/r1i2t3/go-redis/app/writer"
 )
+
+type Server struct {
+	Config config.Config
+	KV     *kv.KV
+}
+
+func NewServer(config *config.Config) *Server {
+	return &Server{
+		Config: *config,
+		KV:     kv.NewKv(),
+	}
+}
 
 func isValidRequest(val resp.Value) bool {
 	if val.Typ != "array" {
@@ -25,7 +39,7 @@ func isValidRequest(val resp.Value) bool {
 	return true
 }
 
-func handleConnection(conn net.Conn, kV *kv.KV) {
+func handleConnection(conn net.Conn, kV *kv.KV, config *config.Config) {
 	defer conn.Close()
 	parser := resp.NewParser(bufio.NewReader(conn))
 	kV.ClientsMu.Lock()
@@ -60,27 +74,39 @@ func handleConnection(conn net.Conn, kV *kv.KV) {
 				continue
 			}
 		} else {
-			if handlers.HandleNonTransactionCommands(command, args, writer, kV, client) {
+			if handlers.HandleNonTransactionCommands(command, args, writer, kV, client, config) {
 				continue
 			}
 		}
 	}
 }
 
-func main() {
+func ListenAndServer(server *Server) {
 	l, err := net.Listen("tcp", ":6379")
 	if err != nil {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
 	defer l.Close()
-	kv := kv.NewKv()
+	kv := server.KV
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Failed to accept connection:", err)
 			continue
 		}
-		go handleConnection(conn, kv)
+		go handleConnection(conn, kv, &server.Config)
 	}
+}
+
+func main() {
+	dir := flag.String("dir", "./data", "data directory")
+	dbfileName := flag.String("dbfilename", "db.rdb", "database file name")
+	flag.Parse()
+	config := &config.Config{
+		Dir:        *dir,
+		DbFileName: *dbfileName,
+	}
+	server := NewServer(config)
+	ListenAndServer(server)
 }
