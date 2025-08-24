@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/r1i2t3/go-redis/app/kv"
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/resp"
 )
 
@@ -20,10 +20,11 @@ func SortKeysByValues(m map[string]float64) []string {
 	return keys
 }
 
-func zadd(args []resp.Value, kvStore *kv.KV) resp.Value {
+func zadd(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZADD' command"}
 	}
+	kvStore := server.KV
 	key := args[0].Bulk
 	score, err := strconv.ParseFloat(args[1].Bulk, 64)
 
@@ -43,14 +44,16 @@ func zadd(args []resp.Value, kvStore *kv.KV) resp.Value {
 		returns = 0
 	}
 	sorted_set[value] = score
-	incrementVersion(key, kvStore)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	return resp.Value{Typ: "integer", Num: returns}
 }
 
-func zscore(args []resp.Value, kvStore *kv.KV) resp.Value {
+func zscore(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) != 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZSCORE' command"}
 	}
+	kvStore := server.KV
 	key := args[0].Bulk
 	value := args[1].Bulk
 	kvStore.SortedsMu.RLock()
@@ -66,10 +69,11 @@ func zscore(args []resp.Value, kvStore *kv.KV) resp.Value {
 	return resp.Value{Typ: "bulk", Bulk: strconv.FormatFloat(score, 'f', -1, 64)}
 }
 
-func zcard(args []resp.Value, kvStore *kv.KV) resp.Value {
+func zcard(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) != 1 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZCARD' command"}
 	}
+	kvStore := server.KV
 	key := args[0].Bulk
 	kvStore.SortedsMu.RLock()
 	defer kvStore.SortedsMu.RUnlock()
@@ -80,10 +84,11 @@ func zcard(args []resp.Value, kvStore *kv.KV) resp.Value {
 	return resp.Value{Typ: "integer", Num: len(sorted_set)}
 }
 
-func zrem(args []resp.Value, kvStore *kv.KV) resp.Value {
+func zrem(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZREM' command"}
 	}
+	kvStore := server.KV
 	key := args[0].Bulk
 	value := args[1].Bulk
 	kvStore.SortedsMu.Lock()
@@ -99,10 +104,11 @@ func zrem(args []resp.Value, kvStore *kv.KV) resp.Value {
 	return resp.Value{Typ: "integer", Num: 0}
 }
 
-func zrank(args []resp.Value, kvStore *kv.KV) resp.Value {
+func zrank(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) != 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZRANK' command"}
 	}
+	kvStore := server.KV
 	key := args[0].Bulk
 	value := args[1].Bulk
 	kvStore.SortedsMu.RLock()
@@ -120,10 +126,11 @@ func zrank(args []resp.Value, kvStore *kv.KV) resp.Value {
 	return resp.Value{Typ: "null"}
 }
 
-func zrange(args []resp.Value, kvStore *kv.KV) resp.Value {
+func zrange(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZRANGE' command"}
 	}
+	kvStore := server.KV
 	key := args[0].Bulk
 	start, err := strconv.Atoi(args[1].Bulk)
 	if err != nil {

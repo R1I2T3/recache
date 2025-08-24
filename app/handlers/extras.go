@@ -4,11 +4,10 @@ import (
 	"strings"
 
 	"github.com/r1i2t3/go-redis/app/config"
-	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
 )
 
-func ping(val []resp.Value, kv *kv.KV) resp.Value {
+func ping(val []resp.Value, server *config.Server) resp.Value {
 	if len(val) == 0 {
 		return resp.Value{Typ: "string", Str: "PONG"}
 	}
@@ -16,18 +15,19 @@ func ping(val []resp.Value, kv *kv.KV) resp.Value {
 	return resp.Value{Typ: "string", Str: val[0].Bulk}
 }
 
-func echo(val []resp.Value, kv *kv.KV) resp.Value {
+func echo(val []resp.Value, server *config.Server) resp.Value {
 	if len(val) == 2 && val[1].Typ == "bulk" {
 		return resp.Value{Typ: "string", Str: val[1].Bulk}
 	}
 	return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'echo' command"}
 }
 
-func typeRedis(val []resp.Value, kv *kv.KV) resp.Value {
+func typeRedis(val []resp.Value, server *config.Server) resp.Value {
 	if len(val) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'type' command"}
 	}
 	key := val[0].Bulk
+	kv := server.KV
 	kv.SETsMu.RLock()
 	if _, ok := kv.SETs[key]; ok {
 		kv.SETsMu.RUnlock()
@@ -47,13 +47,13 @@ func typeRedis(val []resp.Value, kv *kv.KV) resp.Value {
 	return resp.Value{Typ: "string", Str: "none"}
 }
 
-func incrementVersion(key string, kv *kv.KV) {
-	kv.VersionsMu.Lock()
-	kv.Versions[key]++
-	kv.VersionsMu.Unlock()
+func incrementVersion(key string, server *config.Server) {
+	server.KV.VersionsMu.Lock()
+	server.KV.Versions[key]++
+	server.KV.VersionsMu.Unlock()
 }
 
-func getConfig(val []resp.Value, config *config.Config) resp.Value {
+func getConfig(val []resp.Value, server *config.Server) resp.Value {
 	if len(val) != 2 || val[0].Typ != "bulk" || strings.ToUpper(val[0].Bulk) != "GET" {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'config' command"}
 	}
@@ -62,9 +62,9 @@ func getConfig(val []resp.Value, config *config.Config) resp.Value {
 	for _, v := range vals {
 		switch v.Bulk {
 		case "dir":
-			result = append(result, resp.Value{Typ: "bulk", Bulk: "dir"}, resp.Value{Typ: "bulk", Bulk: config.Dir})
+			result = append(result, resp.Value{Typ: "bulk", Bulk: "dir"}, resp.Value{Typ: "bulk", Bulk: server.Config.Dir})
 		case "dbfilename":
-			result = append(result, resp.Value{Typ: "bulk", Bulk: "dbFileName"}, resp.Value{Typ: "bulk", Bulk: config.DbFileName})
+			result = append(result, resp.Value{Typ: "bulk", Bulk: "dbFileName"}, resp.Value{Typ: "bulk", Bulk: server.Config.DbFileName})
 		}
 	}
 	return resp.Value{Typ: "array", Array: result}

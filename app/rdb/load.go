@@ -9,9 +9,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/r1i2t3/go-redis/app/handlers"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/utils"
 )
 
 type rdbLoader struct {
@@ -27,6 +27,10 @@ func newLoader(data []byte, kv *kv.KV) *rdbLoader {
 }
 
 func Load(path string, kv *kv.KV) error {
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("RDB file does not exist")
+	}
 	data, err := readFileAndVerifyChecksum(path)
 	if err != nil {
 		return err
@@ -45,6 +49,7 @@ func Load(path string, kv *kv.KV) error {
 
 func readFileAndVerifyChecksum(path string) ([]byte, error) {
 	file, err := os.Open(path)
+
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +255,7 @@ func (l *rdbLoader) loadStreamObject() error {
 			fields[field] = resp.Value{Typ: "bulk", Bulk: value}
 		}
 
-		parsedID, err := handlers.ParseStreamID(id)
+		parsedID, err := utils.ParseStreamID(id)
 		if err != nil {
 			return err
 		}

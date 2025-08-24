@@ -6,39 +6,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/utils"
 )
 
-func ParseStreamID(id string) (kv.StreamId, error) {
-	parts := strings.Split(id, "-")
-	if len(parts) != 2 {
-		if len(parts) == 1 {
-			timestamp, err := strconv.ParseUint(parts[0], 10, 64)
-			if err != nil {
-				return kv.StreamId{}, err
-			}
-			return kv.StreamId{Timestamp: timestamp, Sequence: 0}, nil
-		}
-		return kv.StreamId{}, fmt.Errorf("invalid stream ID format")
-	}
-
-	timestamp, err := strconv.ParseUint(parts[0], 10, 64)
-	if err != nil {
-		return kv.StreamId{}, err
-	}
-	sequence, err := strconv.ParseUint(parts[1], 10, 64)
-	if err != nil {
-		return kv.StreamId{}, err
-	}
-	return kv.StreamId{Timestamp: timestamp, Sequence: sequence}, nil
-}
-
-func xadd(args []resp.Value, kV *kv.KV) resp.Value {
+func xadd(args []resp.Value, server *config.Server) resp.Value {
 	fmt.Println("xadd called with args:", len(args))
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'xadd' command"}
 	}
+	kV := server.KV
 	key := args[0].Bulk
 	fieldsArray := args[1:]
 
@@ -67,7 +46,8 @@ func xadd(args []resp.Value, kV *kv.KV) resp.Value {
 		Fields: fields,
 	}
 	stream.Entries = append(stream.Entries, entry)
-	incrementVersion(key, kV)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	kV.WakeUpClients(key, true)
 	return resp.Value{Typ: "bulk", Bulk: id.ToString()}
 }
@@ -80,10 +60,11 @@ func streamEntryToResp(entry kv.StreamEntry) resp.Value {
 	return resp.Value{Typ: "array", Array: fields}
 }
 
-func xrange(args []resp.Value, kV *kv.KV) resp.Value {
+func xrange(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'xrange' command"}
 	}
+	kV := server.KV
 	key := args[0].Bulk
 	start := args[1].Bulk
 	end := args[2].Bulk
@@ -99,11 +80,11 @@ func xrange(args []resp.Value, kV *kv.KV) resp.Value {
 	if end == "+" {
 		end = "999999999999999999-999999"
 	}
-	startID, err := ParseStreamID(start)
+	startID, err := utils.ParseStreamID(start)
 	if err != nil {
 		return resp.Value{Typ: "Error", Bulk: "ERR invalid start ID"}
 	}
-	endID, err := ParseStreamID(end)
+	endID, err := utils.ParseStreamID(end)
 	if err != nil {
 		return resp.Value{Typ: "Error", Bulk: "ERR invalid end ID"}
 	}
@@ -120,10 +101,11 @@ func xrange(args []resp.Value, kV *kv.KV) resp.Value {
 	return resp.Value{Typ: "array", Array: result}
 }
 
-func xread(args []resp.Value, keyVal *kv.KV) resp.Value {
+func xread(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'xread' command"}
 	}
+	keyVal := server.KV
 	var blockTimeout time.Duration = -1
 	i := 0
 	if strings.EqualFold(args[i].Bulk, "BLOCK") {
@@ -167,7 +149,7 @@ RetryRead:
 		}
 
 		lastIDStr := lastIDs[key]
-		startID, err := ParseStreamID(lastIDStr)
+		startID, err := utils.ParseStreamID(lastIDStr)
 		if err != nil {
 			keyVal.StreamsMu.RUnlock()
 			return resp.Value{Typ: "error", Str: "ERR Invalid stream ID specified"}

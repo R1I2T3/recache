@@ -1,11 +1,11 @@
 package handlers
 
 import (
-	"github.com/r1i2t3/go-redis/app/kv"
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/resp"
 )
 
-var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
+var Handlers = map[string]func([]resp.Value, *config.Server) resp.Value{
 	"PING": ping,
 	"ECHO": echo,
 	"TYPE": typeRedis,
@@ -40,4 +40,6 @@ var Handlers = map[string]func([]resp.Value, *kv.KV) resp.Value{
 	"ZREM":   zrem,
 	"ZRANK":  zrank,
 	"ZRANGE": zrange,
+	// rdb
+	"BGSAVE": handleBgsave,
 }

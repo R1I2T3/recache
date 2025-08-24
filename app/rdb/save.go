@@ -12,6 +12,41 @@ import (
 	"github.com/r1i2t3/go-redis/app/kv"
 )
 
+func Save(path string, kv *kv.KV) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	buf := bufio.NewWriter(file)
+	hasher := crc64.New(crc64.MakeTable(crc64.ISO))
+	writer := io.MultiWriter(buf, hasher)
+
+	if err := writeHeader(writer); err != nil {
+		return fmt.Errorf("failed to write rdb header: %w", err)
+	}
+	if err := saveStrings(writer, kv); err != nil {
+		return fmt.Errorf("failed to save strings: %w", err)
+	}
+	if err := saveLists(writer, kv); err != nil {
+		return fmt.Errorf("failed to save lists: %w", err)
+	}
+	if err := saveHashes(writer, kv); err != nil {
+		return fmt.Errorf("failed to save hashes: %w", err)
+	}
+	if err := saveStreams(writer, kv); err != nil {
+		return fmt.Errorf("failed to save streams: %w", err)
+	}
+	if err := saveSortedSets(writer, kv); err != nil {
+		return fmt.Errorf("failed to save sorted sets: %w", err)
+	}
+	if err := writeFooter(writer, buf, hasher); err != nil {
+		return fmt.Errorf("failed to write rdb footer: %w", err)
+	}
+	return buf.Flush()
+}
+
 func writeHeader(writer io.Writer) error {
 	if _, err := writer.Write([]byte(MagicString)); err != nil {
 		return err
@@ -152,39 +187,4 @@ func saveSortedSets(writer io.Writer, kv *kv.KV) error {
 		}
 	}
 	return nil
-}
-
-func Save(path string, kv *kv.KV) error {
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	buf := bufio.NewWriter(file)
-	hasher := crc64.New(crc64.MakeTable(crc64.ISO))
-	writer := io.MultiWriter(buf, hasher)
-
-	if err := writeHeader(writer); err != nil {
-		return fmt.Errorf("failed to write rdb header: %w", err)
-	}
-	if err := saveStrings(writer, kv); err != nil {
-		return fmt.Errorf("failed to save strings: %w", err)
-	}
-	if err := saveLists(writer, kv); err != nil {
-		return fmt.Errorf("failed to save lists: %w", err)
-	}
-	if err := saveHashes(writer, kv); err != nil {
-		return fmt.Errorf("failed to save hashes: %w", err)
-	}
-	if err := saveStreams(writer, kv); err != nil {
-		return fmt.Errorf("failed to save streams: %w", err)
-	}
-	if err := saveSortedSets(writer, kv); err != nil {
-		return fmt.Errorf("failed to save sorted sets: %w", err)
-	}
-	if err := writeFooter(writer, buf, hasher); err != nil {
-		return fmt.Errorf("failed to write rdb footer: %w", err)
-	}
-	return buf.Flush()
 }

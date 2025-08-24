@@ -5,15 +5,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r1i2t3/go-redis/app/kv"
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/resp"
 )
 
-func get(val []resp.Value, kv *kv.KV) resp.Value {
+func get(val []resp.Value, server *config.Server) resp.Value {
 	if len(val) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'get' command"}
 	}
-
+	kv := server.KV
 	key := val[0].Bulk
 
 	kv.SETsMu.RLock()
@@ -32,11 +32,11 @@ func get(val []resp.Value, kv *kv.KV) resp.Value {
 	return resp.Value{Typ: "string", Str: value.Str}
 }
 
-func set(args []resp.Value, kv *kv.KV) resp.Value {
+func set(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'set' command"}
 	}
-
+	kv := server.KV
 	key := args[0].Bulk
 	newVal := args[1].Bulk
 
@@ -104,7 +104,8 @@ func set(args []resp.Value, kv *kv.KV) resp.Value {
 	kv.SETsMu.Lock()
 	kv.SETs[key] = insert
 	kv.SETsMu.Unlock()
-	incrementVersion(key, kv)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	if get {
 		if exists {
 			return oldVal
@@ -115,11 +116,11 @@ func set(args []resp.Value, kv *kv.KV) resp.Value {
 	return resp.Value{Typ: "string", Str: "OK"}
 }
 
-func incr(args []resp.Value, kv *kv.KV) resp.Value {
+func incr(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'incr' command"}
 	}
-
+	kv := server.KV
 	key := args[0].Bulk
 
 	kv.SETsMu.Lock()
@@ -139,6 +140,7 @@ func incr(args []resp.Value, kv *kv.KV) resp.Value {
 	num++
 	value.Str = strconv.Itoa(num)
 	kv.SETs[key] = value
-	incrementVersion(key, kv)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	return resp.Value{Typ: "string", Str: value.Str}
 }

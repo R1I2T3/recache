@@ -5,14 +5,16 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
 )
 
-func rpush(args []resp.Value, kv *kv.KV) resp.Value {
+func rpush(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'rpush' command"}
 	}
+	kv := server.KV
 	key := args[0].Bulk
 	values := args[1:]
 	kv.ListsMu.Lock()
@@ -26,14 +28,16 @@ func rpush(args []resp.Value, kv *kv.KV) resp.Value {
 	if len(values) > 0 {
 		kv.WakeUpClients(key, false)
 	}
-	incrementVersion(key, kv)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	return resp.Value{Typ: "integer", Num: length}
 }
 
-func lrange(args []resp.Value, kv *kv.KV) resp.Value {
+func lrange(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) != 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'lrange' command"}
 	}
+	kv := server.KV
 	key := args[0].Bulk
 	fmt.Println(args[1], args[2])
 	start, _ := strconv.ParseInt(args[1].Bulk, 10, 64)
@@ -61,10 +65,11 @@ func lrange(args []resp.Value, kv *kv.KV) resp.Value {
 	return resp.Value{Typ: "array", Array: List[start : end+1]}
 }
 
-func lpush(args []resp.Value, kv *kv.KV) resp.Value {
+func lpush(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'lpush' command"}
 	}
+	kv := server.KV
 	key := args[0].Bulk
 	values := args[1:]
 	kv.ListsMu.Lock()
@@ -79,14 +84,16 @@ func lpush(args []resp.Value, kv *kv.KV) resp.Value {
 	if len(values) > 0 {
 		kv.WakeUpClients(key, false)
 	}
-	incrementVersion(key, kv)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	return resp.Value{Typ: "integer", Num: length}
 }
 
-func llen(args []resp.Value, kv *kv.KV) resp.Value {
+func llen(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'llen' command"}
 	}
+	kv := server.KV
 	key := args[0].Bulk
 	kv.ListsMu.Lock()
 	defer kv.ListsMu.Unlock()
@@ -97,10 +104,11 @@ func llen(args []resp.Value, kv *kv.KV) resp.Value {
 	return resp.Value{Typ: "integer", Num: len(list)}
 }
 
-func lpop(args []resp.Value, kv *kv.KV) resp.Value {
+func lpop(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 1 || len(args) > 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'lpop' command"}
 	}
+	kv := server.KV
 	key := args[0].Bulk
 	num_pop := 1
 	if len(args) == 2 {
@@ -127,14 +135,16 @@ func lpop(args []resp.Value, kv *kv.KV) resp.Value {
 	values := make([]resp.Value, num_pop)
 	copy(values, list[:num_pop])
 	kv.Lists[key] = list[num_pop:]
-	incrementVersion(key, kv)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	return resp.Value{Typ: "array", Array: values}
 }
 
-func rpop(args []resp.Value, kv *kv.KV) resp.Value {
+func rpop(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 1 || len(args) > 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'rpop' command"}
 	}
+	kv := server.KV
 	key := args[0].Bulk
 	num_pop := 1
 	if len(args) == 2 {
@@ -167,14 +177,16 @@ func rpop(args []resp.Value, kv *kv.KV) resp.Value {
 		values[i] = list[len(list)-1-i]
 	}
 	kv.Lists[key] = list[:start]
-	incrementVersion(key, kv)
+	incrementVersion(key, server)
+	server.IncrementDirty()
 	return resp.Value{Typ: "array", Array: values}
 }
 
-func blpop(args []resp.Value, kV *kv.KV) resp.Value {
+func blpop(args []resp.Value, server *config.Server) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'blpop' command"}
 	}
+	kV := server.KV
 	keys := make([]string, 0, len(args)-1)
 	for _, a := range args[:len(args)-1] {
 		keys = append(keys, a.Bulk)
@@ -191,7 +203,8 @@ RetryPop:
 			val := list[0]
 			kV.Lists[key] = list[1:]
 			kV.ListsMu.Unlock()
-			incrementVersion(key, kV)
+			incrementVersion(key, server)
+			server.IncrementDirty()
 			return resp.Value{Typ: "array", Array: []resp.Value{
 				{Typ: "bulk", Bulk: key},
 				val,

@@ -10,7 +10,8 @@ import (
 	"github.com/r1i2t3/go-redis/app/writer"
 )
 
-func handleExec(kV *kv.KV, client *kv.ClientType) resp.Value {
+func handleExec(server *config.Server, client *kv.ClientType) resp.Value {
+	kV := server.KV
 	kV.VersionsMu.Lock()
 	for key, watchedVersion := range client.WatchedKeys {
 		currentVersion := kV.Versions[key]
@@ -30,16 +31,17 @@ func handleExec(kV *kv.KV, client *kv.ClientType) resp.Value {
 			continue
 		}
 
-		results[i] = handler(args, kV)
+		results[i] = handler(args, server)
 	}
 
 	return resp.Value{Typ: "array", Array: results}
 }
 
-func handleWatch(args []resp.Value, kV *kv.KV, client *kv.ClientType) resp.Value {
+func handleWatch(args []resp.Value, server *config.Server, client *kv.ClientType) resp.Value {
 	if len(args) == 0 {
 		return resp.Value{Typ: "error", Err: "ERR wrong number of arguments for 'watch' command"}
 	}
+	kV := server.KV
 	kV.VersionsMu.Lock()
 	defer kV.VersionsMu.Unlock()
 
@@ -51,8 +53,8 @@ func handleWatch(args []resp.Value, kV *kv.KV, client *kv.ClientType) resp.Value
 	return resp.Value{Typ: "string", Str: "OK"}
 }
 
-// New, thread-safe HandleTransactionCommands
-func HandleTransactionCommands(command string, val resp.Value, writer *writer.Writer, kV *kv.KV, client *kv.ClientType) bool {
+func HandleTransactionCommands(command string, val resp.Value, writer *writer.Writer, client *kv.ClientType, server *config.Server) bool {
+	kV := server.KV
 	switch command {
 	case "EXEC":
 		kV.TransactionMu.Lock()
@@ -67,7 +69,7 @@ func HandleTransactionCommands(command string, val resp.Value, writer *writer.Wr
 			writer.Write(resp.Value{Typ: "error", Str: "ERR EXEC without commands in queue"})
 			return true
 		}
-		result := handleExec(kV, client)
+		result := handleExec(server, client)
 		writer.Write(result)
 		return true
 
@@ -88,9 +90,9 @@ func HandleTransactionCommands(command string, val resp.Value, writer *writer.Wr
 	}
 }
 
-func HandleNonTransactionCommands(command string, args []resp.Value, writer *writer.Writer, kV *kv.KV, client *kv.ClientType, config *config.Config) bool {
+func HandleNonTransactionCommands(command string, args []resp.Value, writer *writer.Writer, client *kv.ClientType, server *config.Server) bool {
 	if command == "WATCH" {
-		result := handleWatch(args, kV, client)
+		result := handleWatch(args, server, client)
 		writer.Write(result)
 		return true
 	}
@@ -106,7 +108,7 @@ func HandleNonTransactionCommands(command string, args []resp.Value, writer *wri
 		return true
 	}
 	if command == "CONFIG" {
-		result := getConfig(args, config)
+		result := getConfig(args, server)
 		writer.Write(result)
 		return true
 	}
@@ -118,7 +120,7 @@ func HandleNonTransactionCommands(command string, args []resp.Value, writer *wri
 		}
 		return true
 	}
-	result := handler(args, kV)
+	result := handler(args, server)
 	writer.Write(result)
 	return false
 }
