@@ -1,4 +1,4 @@
-package config
+package types
 
 import (
 	"sync"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/r1i2t3/go-redis/app/kv"
+	pubsub "github.com/r1i2t3/go-redis/app/pub_sub"
 )
 
 type Config struct {
@@ -22,6 +23,7 @@ type Server struct {
 	LastSave   time.Time
 	StateMutex sync.Mutex
 	IsSaving   atomic.Bool
+	PS         *pubsub.PubSub
 }
 
 func (s *Server) IncrementDirty() {

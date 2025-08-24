@@ -3,11 +3,12 @@ package handlers
 import (
 	"strings"
 
-	"github.com/r1i2t3/go-redis/app/config"
+	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/types"
 )
 
-func ping(val []resp.Value, server *config.Server) resp.Value {
+func ping(val []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(val) == 0 {
 		return resp.Value{Typ: "string", Str: "PONG"}
 	}
@@ -15,14 +16,14 @@ func ping(val []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "string", Str: val[0].Bulk}
 }
 
-func echo(val []resp.Value, server *config.Server) resp.Value {
+func echo(val []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(val) == 1 && val[0].Typ == "bulk" {
 		return resp.Value{Typ: "string", Str: val[0].Bulk}
 	}
 	return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'echo' command"}
 }
 
-func typeRedis(val []resp.Value, server *config.Server) resp.Value {
+func typeRedis(val []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(val) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'type' command"}
 	}
@@ -47,13 +48,13 @@ func typeRedis(val []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "string", Str: "none"}
 }
 
-func incrementVersion(key string, server *config.Server) {
+func incrementVersion(key string, server *types.Server) {
 	server.KV.VersionsMu.Lock()
 	server.KV.Versions[key]++
 	server.KV.VersionsMu.Unlock()
 }
 
-func getConfig(val []resp.Value, server *config.Server) resp.Value {
+func getConfig(val []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(val) != 2 || val[0].Typ != "bulk" || strings.ToUpper(val[0].Bulk) != "GET" {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'config' command"}
 	}

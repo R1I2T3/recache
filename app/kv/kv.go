@@ -48,6 +48,9 @@ type ClientType struct {
 	IsInTransaction bool
 	CommandQueue    []resp.Value
 	WatchedKeys     map[string]uint64
+	IsSubscribed    bool
+	Subscriptions   map[string]bool
+	MessageChan     chan resp.Value
 }
 
 type KV struct {

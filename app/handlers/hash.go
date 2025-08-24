@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"github.com/r1i2t3/go-redis/app/config"
+	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/types"
 )
 
-func hset(args []resp.Value, server *config.Server) resp.Value {
+func hset(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hset' command"}
 	}
@@ -23,7 +24,7 @@ func hset(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: 1}
 }
 
-func hget(args []resp.Value, server *config.Server) resp.Value {
+func hget(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hget' command"}
 	}
@@ -39,7 +40,7 @@ func hget(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "null"}
 }
 
-func hdel(args []resp.Value, server *config.Server) resp.Value {
+func hdel(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hdel' command"}
 	}
@@ -58,7 +59,7 @@ func hdel(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: 0}
 }
 
-func hexists(args []resp.Value, server *config.Server) resp.Value {
+func hexists(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hexists' command"}
 	}
@@ -74,7 +75,7 @@ func hexists(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: 0}
 }
 
-func hlen(args []resp.Value, server *config.Server) resp.Value {
+func hlen(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hlen' command"}
 	}
@@ -87,7 +88,7 @@ func hlen(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: 0}
 }
 
-func hkeys(args []resp.Value, server *config.Server) resp.Value {
+func hkeys(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hkeys' command"}
 	}
@@ -104,7 +105,7 @@ func hkeys(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "array", Array: []resp.Value{}}
 }
 
-func hvals(args []resp.Value, server *config.Server) resp.Value {
+func hvals(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'hvals' command"}
 	}

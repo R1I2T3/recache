@@ -4,8 +4,9 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/r1i2t3/go-redis/app/config"
+	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/types"
 )
 
 func SortKeysByValues(m map[string]float64) []string {
@@ -20,7 +21,7 @@ func SortKeysByValues(m map[string]float64) []string {
 	return keys
 }
 
-func zadd(args []resp.Value, server *config.Server) resp.Value {
+func zadd(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZADD' command"}
 	}
@@ -49,7 +50,7 @@ func zadd(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: returns}
 }
 
-func zscore(args []resp.Value, server *config.Server) resp.Value {
+func zscore(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) != 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZSCORE' command"}
 	}
@@ -69,7 +70,7 @@ func zscore(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "bulk", Bulk: strconv.FormatFloat(score, 'f', -1, 64)}
 }
 
-func zcard(args []resp.Value, server *config.Server) resp.Value {
+func zcard(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) != 1 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZCARD' command"}
 	}
@@ -84,7 +85,7 @@ func zcard(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: len(sorted_set)}
 }
 
-func zrem(args []resp.Value, server *config.Server) resp.Value {
+func zrem(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZREM' command"}
 	}
@@ -104,7 +105,7 @@ func zrem(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: 0}
 }
 
-func zrank(args []resp.Value, server *config.Server) resp.Value {
+func zrank(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) != 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZRANK' command"}
 	}
@@ -126,7 +127,7 @@ func zrank(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "null"}
 }
 
-func zrange(args []resp.Value, server *config.Server) resp.Value {
+func zrange(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'ZRANGE' command"}
 	}

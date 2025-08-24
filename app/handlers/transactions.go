@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/types"
 	"github.com/r1i2t3/go-redis/app/writer"
 )
 
-func handleExec(server *config.Server, client *kv.ClientType) resp.Value {
+func handleExec(server *types.Server, client *kv.ClientType) resp.Value {
 	kV := server.KV
 	kV.VersionsMu.Lock()
 	for key, watchedVersion := range client.WatchedKeys {
@@ -31,13 +31,13 @@ func handleExec(server *config.Server, client *kv.ClientType) resp.Value {
 			continue
 		}
 
-		results[i] = handler(args, server)
+		results[i] = handler(args, server, client)
 	}
 
 	return resp.Value{Typ: "array", Array: results}
 }
 
-func handleWatch(args []resp.Value, server *config.Server, client *kv.ClientType) resp.Value {
+func handleWatch(args []resp.Value, server *types.Server, client *kv.ClientType) resp.Value {
 	if len(args) == 0 {
 		return resp.Value{Typ: "error", Err: "ERR wrong number of arguments for 'watch' command"}
 	}
@@ -53,7 +53,7 @@ func handleWatch(args []resp.Value, server *config.Server, client *kv.ClientType
 	return resp.Value{Typ: "string", Str: "OK"}
 }
 
-func HandleTransactionCommands(command string, val resp.Value, writer *writer.Writer, client *kv.ClientType, server *config.Server) bool {
+func HandleTransactionCommands(command string, val resp.Value, writer *writer.Writer, client *kv.ClientType, server *types.Server) bool {
 	kV := server.KV
 	switch command {
 	case "EXEC":
@@ -90,7 +90,7 @@ func HandleTransactionCommands(command string, val resp.Value, writer *writer.Wr
 	}
 }
 
-func HandleNonTransactionCommands(command string, args []resp.Value, writer *writer.Writer, client *kv.ClientType, server *config.Server) bool {
+func HandleNonTransactionCommands(command string, args []resp.Value, writer *writer.Writer, client *kv.ClientType, server *types.Server) bool {
 	if command == "WATCH" {
 		result := handleWatch(args, server, client)
 		writer.Write(result)
@@ -108,7 +108,7 @@ func HandleNonTransactionCommands(command string, args []resp.Value, writer *wri
 		return true
 	}
 	if command == "CONFIG" {
-		result := getConfig(args, server)
+		result := getConfig(args, server, client)
 		writer.Write(result)
 		return true
 	}
@@ -120,7 +120,7 @@ func HandleNonTransactionCommands(command string, args []resp.Value, writer *wri
 		}
 		return true
 	}
-	result := handler(args, server)
+	result := handler(args, server, client)
 	writer.Write(result)
 	return false
 }

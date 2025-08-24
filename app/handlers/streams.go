@@ -5,13 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/types"
 	"github.com/r1i2t3/go-redis/app/utils"
 )
 
-func xadd(args []resp.Value, server *config.Server) resp.Value {
+func xadd(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'xadd' command"}
 	}
@@ -58,7 +58,7 @@ func streamEntryToResp(entry kv.StreamEntry) resp.Value {
 	return resp.Value{Typ: "array", Array: fields}
 }
 
-func xrange(args []resp.Value, server *config.Server) resp.Value {
+func xrange(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Bulk: "ERR wrong number of arguments for 'xrange' command"}
 	}
@@ -98,7 +98,7 @@ func xrange(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "array", Array: result}
 }
 
-func xread(args []resp.Value, server *config.Server) resp.Value {
+func xread(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'xread' command"}
 	}

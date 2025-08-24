@@ -4,12 +4,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/r1i2t3/go-redis/app/config"
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/types"
 )
 
-func rpush(args []resp.Value, server *config.Server) resp.Value {
+func rpush(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'rpush' command"}
 	}
@@ -32,7 +32,7 @@ func rpush(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: length}
 }
 
-func lrange(args []resp.Value, server *config.Server) resp.Value {
+func lrange(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) != 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'lrange' command"}
 	}
@@ -63,7 +63,7 @@ func lrange(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "array", Array: List[start : end+1]}
 }
 
-func lpush(args []resp.Value, server *config.Server) resp.Value {
+func lpush(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'lpush' command"}
 	}
@@ -87,7 +87,7 @@ func lpush(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: length}
 }
 
-func llen(args []resp.Value, server *config.Server) resp.Value {
+func llen(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'llen' command"}
 	}
@@ -102,7 +102,7 @@ func llen(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "integer", Num: len(list)}
 }
 
-func lpop(args []resp.Value, server *config.Server) resp.Value {
+func lpop(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 1 || len(args) > 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'lpop' command"}
 	}
@@ -138,7 +138,7 @@ func lpop(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "array", Array: values}
 }
 
-func rpop(args []resp.Value, server *config.Server) resp.Value {
+func rpop(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 1 || len(args) > 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'rpop' command"}
 	}
@@ -180,7 +180,7 @@ func rpop(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "array", Array: values}
 }
 
-func blpop(args []resp.Value, server *config.Server) resp.Value {
+func blpop(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'blpop' command"}
 	}

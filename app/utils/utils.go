@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/r1i2t3/go-redis/app/kv"
+	"github.com/r1i2t3/go-redis/app/resp"
 )
 
 func ParseStreamID(id string) (kv.StreamId, error) {
@@ -30,4 +31,16 @@ func ParseStreamID(id string) (kv.StreamId, error) {
 		return kv.StreamId{}, err
 	}
 	return kv.StreamId{Timestamp: timestamp, Sequence: sequence}, nil
+}
+
+func IsValidRequest(val resp.Value) bool {
+	if val.Typ != "array" {
+		fmt.Println("Invalid request, expected array")
+		return false
+	}
+	if len(val.Array) == 0 {
+		fmt.Println("Invalid request, expected array length > 0")
+		return false
+	}
+	return true
 }

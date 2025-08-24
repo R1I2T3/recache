@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/r1i2t3/go-redis/app/config"
+	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
+	"github.com/r1i2t3/go-redis/app/types"
 )
 
-func get(val []resp.Value, server *config.Server) resp.Value {
+func get(val []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(val) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'get' command"}
 	}
@@ -32,7 +33,7 @@ func get(val []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "string", Str: value.Str}
 }
 
-func set(args []resp.Value, server *config.Server) resp.Value {
+func set(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) < 2 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'set' command"}
 	}
@@ -116,7 +117,7 @@ func set(args []resp.Value, server *config.Server) resp.Value {
 	return resp.Value{Typ: "string", Str: "OK"}
 }
 
-func incr(args []resp.Value, server *config.Server) resp.Value {
+func incr(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	if len(args) != 1 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'incr' command"}
 	}
