@@ -7,7 +7,6 @@ import (
 	"hash/crc64"
 	"io"
 	"os"
-	"strconv"
 
 	"github.com/r1i2t3/go-redis/app/kv"
 	"github.com/r1i2t3/go-redis/app/resp"
@@ -81,13 +80,14 @@ func (l *rdbLoader) loadHeader() error {
 	if string(magic) != MagicString {
 		return fmt.Errorf("invalid rdb magic string")
 	}
-	var version uint64
+	var version uint32
 	if err := binary.Read(l.reader, binary.BigEndian, &version); err != nil {
 		return err
 	}
 	if version != Version {
 		return fmt.Errorf("unsupported rdb version: %d", version)
 	}
+
 	return nil
 }
 
@@ -133,7 +133,7 @@ func (l *rdbLoader) loadStringObject() error {
 	if err != nil {
 		return err
 	}
-	l.kv.SETs[key] = resp.Value{Typ: "bulk", Bulk: val}
+	l.kv.SETs[key] = resp.Value{Typ: "string", Str: val}
 	return nil
 }
 
@@ -197,19 +197,14 @@ func (l *rdbLoader) loadZSetObject() error {
 	if err := binary.Read(l.reader, binary.BigEndian, &memberCount); err != nil {
 		return err
 	}
-
 	members := make(map[string]float64, memberCount)
 	for i := uint64(0); i < memberCount; i++ {
 		member, err := ReadString(l.reader)
 		if err != nil {
 			return err
 		}
-		scoreStr, err := ReadString(l.reader)
-		if err != nil {
-			return err
-		}
-		score, err := strconv.ParseFloat(scoreStr, 64)
-		if err != nil {
+		var score float64
+		if err := binary.Read(l.reader, binary.BigEndian, &score); err != nil {
 			return err
 		}
 		members[member] = score

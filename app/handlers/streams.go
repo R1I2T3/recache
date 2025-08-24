@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +12,6 @@ import (
 )
 
 func xadd(args []resp.Value, server *config.Server) resp.Value {
-	fmt.Println("xadd called with args:", len(args))
 	if len(args) < 3 {
 		return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'xadd' command"}
 	}
@@ -97,7 +95,6 @@ func xrange(args []resp.Value, server *config.Server) resp.Value {
 		}
 		result = append(result, resp.Value{Typ: "array", Array: stream})
 	}
-	fmt.Println("xrange result:", result)
 	return resp.Value{Typ: "array", Array: result}
 }
 

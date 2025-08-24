@@ -79,7 +79,7 @@ func handleConnection(conn net.Conn, kV *kv.KV, server *config.Server) {
 }
 
 func startRDBackgroundSave(server *config.Server) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {

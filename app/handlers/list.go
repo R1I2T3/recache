@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -39,7 +38,6 @@ func lrange(args []resp.Value, server *config.Server) resp.Value {
 	}
 	kv := server.KV
 	key := args[0].Bulk
-	fmt.Println(args[1], args[2])
 	start, _ := strconv.ParseInt(args[1].Bulk, 10, 64)
 	end, _ := strconv.ParseInt(args[2].Bulk, 10, 64)
 

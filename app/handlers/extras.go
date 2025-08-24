@@ -16,8 +16,8 @@ func ping(val []resp.Value, server *config.Server) resp.Value {
 }
 
 func echo(val []resp.Value, server *config.Server) resp.Value {
-	if len(val) == 2 && val[1].Typ == "bulk" {
-		return resp.Value{Typ: "string", Str: val[1].Bulk}
+	if len(val) == 1 && val[0].Typ == "bulk" {
+		return resp.Value{Typ: "string", Str: val[0].Bulk}
 	}
 	return resp.Value{Typ: "error", Str: "ERR wrong number of arguments for 'echo' command"}
 }

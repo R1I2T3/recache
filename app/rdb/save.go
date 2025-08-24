@@ -73,7 +73,7 @@ func saveStrings(writer io.Writer, kv *kv.KV) error {
 		if err := WriteString(writer, key); err != nil {
 			return err
 		}
-		if err := WriteString(writer, value.Bulk); err != nil {
+		if err := WriteString(writer, value.Str); err != nil {
 			return err
 		}
 	}
@@ -95,6 +95,7 @@ func saveLists(writer io.Writer, kv *kv.KV) error {
 			return err
 		}
 		for _, item := range list {
+			fmt.Println(item.Bulk)
 			if err := WriteString(writer, item.Bulk); err != nil {
 				return err
 			}
@@ -114,9 +115,11 @@ func saveHashes(writer io.Writer, kv *kv.KV) error {
 		if err := WriteString(writer, key); err != nil {
 			return err
 		}
+
 		if err := binary.Write(writer, binary.BigEndian, uint64(len(hash))); err != nil {
 			return err
 		}
+
 		for field, value := range hash {
 			if err := WriteString(writer, field); err != nil {
 				return err
