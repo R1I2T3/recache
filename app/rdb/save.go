@@ -112,6 +112,9 @@ func saveStreams(writer io.Writer, kv *kv.KV) error {
 			if err := WriteString(writer, entry.ID.ToString()); err != nil {
 				return err
 			}
+			if err := binary.Write(writer, binary.BigEndian, uint64(len(entry.Fields))); err != nil {
+				return err
+			}
 			for field, value := range entry.Fields {
 				if err := WriteString(writer, field); err != nil {
 					return err

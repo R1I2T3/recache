@@ -10,7 +10,7 @@ import (
 	"github.com/r1i2t3/go-redis/app/resp"
 )
 
-func parseStreamID(id string) (kv.StreamId, error) {
+func ParseStreamID(id string) (kv.StreamId, error) {
 	parts := strings.Split(id, "-")
 	if len(parts) != 2 {
 		if len(parts) == 1 {
@@ -99,11 +99,11 @@ func xrange(args []resp.Value, kV *kv.KV) resp.Value {
 	if end == "+" {
 		end = "999999999999999999-999999"
 	}
-	startID, err := parseStreamID(start)
+	startID, err := ParseStreamID(start)
 	if err != nil {
 		return resp.Value{Typ: "Error", Bulk: "ERR invalid start ID"}
 	}
-	endID, err := parseStreamID(end)
+	endID, err := ParseStreamID(end)
 	if err != nil {
 		return resp.Value{Typ: "Error", Bulk: "ERR invalid end ID"}
 	}
@@ -167,7 +167,7 @@ RetryRead:
 		}
 
 		lastIDStr := lastIDs[key]
-		startID, err := parseStreamID(lastIDStr)
+		startID, err := ParseStreamID(lastIDStr)
 		if err != nil {
 			keyVal.StreamsMu.RUnlock()
 			return resp.Value{Typ: "error", Str: "ERR Invalid stream ID specified"}
