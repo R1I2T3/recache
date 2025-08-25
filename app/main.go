@@ -18,11 +18,46 @@ import (
 	"github.com/r1i2t3/go-redis/app/writer"
 )
 
+func main() {
+	dir := flag.String("dir", "/tmp", "data directory")
+	dbfileName := flag.String("dbfilename", "dump.rdb", "database file name")
+	flag.Parse()
+	config := &types.Config{
+		Dir:            *dir,
+		DbFileName:     *dbfileName,
+		RDBSaveSeconds: 900,
+		RDBSaveChanges: 1,
+	}
+	path := fmt.Sprintf("%s/%s", config.Dir, config.DbFileName)
+	server := NewServer(config)
+	rdb.Load(path, server.KV)
+	go rdb.StartRDBackgroundSave(server)
+	ListenAndServer(server)
+}
+
 func NewServer(conf *types.Config) *types.Server {
 	return &types.Server{
 		Config: *conf,
 		KV:     kv.NewKv(),
 		PS:     pubsub.NewPubSub(),
+	}
+}
+
+func ListenAndServer(server *types.Server) {
+	l, err := net.Listen("tcp", ":6379")
+	if err != nil {
+		fmt.Println("Failed to bind to port 6379")
+		os.Exit(1)
+	}
+	defer l.Close()
+	kv := server.KV
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Failed to accept connection:", err)
+			continue
+		}
+		go handleConnection(conn, kv, server)
 	}
 }
 
@@ -65,7 +100,17 @@ func handleConnection(conn net.Conn, kV *kv.KV, server *types.Server) {
 		}
 		command := strings.ToUpper(val.Array[0].Bulk)
 		args := val.Array[1:]
-
+		if client.IsSubscribed {
+			switch command {
+			case "UNSUBSCRIBE", "PING":
+				handler, ok := handlers.Handlers[command]
+				if ok {
+					handler(args, server, client)
+				}
+			default:
+				client.MessageChan <- resp.Value{Typ: "error", Err: "ERR only 'UNSUBSCRIBE' and 'PING' are allowed in this context"}
+			}
+		}
 		if client.IsInTransaction {
 			if handlers.HandleTransactionCommands(command, val, writer, client, server) {
 				continue
@@ -76,39 +121,4 @@ func handleConnection(conn net.Conn, kV *kv.KV, server *types.Server) {
 			}
 		}
 	}
-}
-
-func ListenAndServer(server *types.Server) {
-	l, err := net.Listen("tcp", ":6379")
-	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
-		os.Exit(1)
-	}
-	defer l.Close()
-	kv := server.KV
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			fmt.Println("Failed to accept connection:", err)
-			continue
-		}
-		go handleConnection(conn, kv, server)
-	}
-}
-
-func main() {
-	dir := flag.String("dir", "/tmp", "data directory")
-	dbfileName := flag.String("dbfilename", "dump.rdb", "database file name")
-	flag.Parse()
-	config := &types.Config{
-		Dir:            *dir,
-		DbFileName:     *dbfileName,
-		RDBSaveSeconds: 900,
-		RDBSaveChanges: 1,
-	}
-	path := fmt.Sprintf("%s/%s", config.Dir, config.DbFileName)
-	server := NewServer(config)
-	rdb.Load(path, server.KV)
-	go rdb.StartRDBackgroundSave(server)
-	ListenAndServer(server)
 }
