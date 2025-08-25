@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/r1i2t3/go-redis/app/handlers"
 	"github.com/r1i2t3/go-redis/app/kv"
 	pubsub "github.com/r1i2t3/go-redis/app/pub_sub"
 	"github.com/r1i2t3/go-redis/app/rdb"
+	"github.com/r1i2t3/go-redis/app/replication"
 	"github.com/r1i2t3/go-redis/app/resp"
 	"github.com/r1i2t3/go-redis/app/types"
 	"github.com/r1i2t3/go-redis/app/utils"
@@ -21,32 +24,66 @@ import (
 func main() {
 	dir := flag.String("dir", "/tmp", "data directory")
 	dbfileName := flag.String("dbfilename", "dump.rdb", "database file name")
+	portString := flag.String("port", "6379", "server port")
+	replicaof := flag.String("replicaof", "127.0.0.1:6379", "Replica host and port")
+	MasterHost := ""
+	MasterPort := 0
+	IsSlave := false
+	if *replicaof != "" {
+		parts := strings.Split(*replicaof, ":")
+		if len(parts) != 2 {
+			fmt.Println("Invalid replicaof format")
+			os.Exit(1)
+		}
+		MasterHost = parts[0]
+		MasterPort, _ = strconv.Atoi(parts[1])
+		IsSlave = true
+	}
 	flag.Parse()
+	port, err := strconv.Atoi(*portString)
+	if err != nil {
+		fmt.Println("Invalid port number")
+		os.Exit(1)
+	}
 	config := &types.Config{
 		Dir:            *dir,
 		DbFileName:     *dbfileName,
 		RDBSaveSeconds: 900,
 		RDBSaveChanges: 1,
+		PORT:           port,
 	}
 	path := fmt.Sprintf("%s/%s", config.Dir, config.DbFileName)
-	server := NewServer(config)
+	server := NewServer(config, MasterHost, MasterPort, IsSlave)
 	rdb.Load(path, server.KV)
 	go rdb.StartRDBackgroundSave(server)
 	ListenAndServer(server)
 }
 
-func NewServer(conf *types.Config) *types.Server {
+func NewServer(conf *types.Config, MasterHost string, MasterPort int, IsSlave bool) *types.Server {
+	replication_id, err := utils.GenerateRandomID()
+	if err != nil {
+		fmt.Println("Failed to create replication_id")
+		os.Exit(1)
+	}
 	return &types.Server{
-		Config: *conf,
-		KV:     kv.NewKv(),
-		PS:     pubsub.NewPubSub(),
+		Config:            *conf,
+		KV:                kv.NewKv(),
+		PS:                pubsub.NewPubSub(),
+		IsMaster:          !IsSlave,
+		IsSlave:           IsSlave,
+		MasterHost:        MasterHost,
+		MasterPort:        MasterPort,
+		ConnectedReplicas: make(map[net.Conn]*replication.ReplicaInfo),
+		ReplicasMutex:     sync.RWMutex{},
+		ReplicationID:     replication_id,
+		ReplicationOffset: 0,
 	}
 }
 
 func ListenAndServer(server *types.Server) {
-	l, err := net.Listen("tcp", ":6379")
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Config.PORT))
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		fmt.Println("Failed to bind to port", server.Config.PORT)
 		os.Exit(1)
 	}
 	defer l.Close()

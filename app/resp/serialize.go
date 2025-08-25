@@ -1,6 +1,8 @@
 package resp
 
-import "strconv"
+import (
+	"strconv"
+)
 
 func (v Value) Serializer() []byte {
 	switch v.Typ {

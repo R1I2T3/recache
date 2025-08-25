@@ -47,4 +47,7 @@ var Handlers = map[string]func([]resp.Value, *types.Server, *kv.ClientType) resp
 	"PUBLISH":     handlePublish,
 	"SUBSCRIBE":   handleSubscribe,
 	"UNSUBSCRIBE": handleUnsubscribe,
+	// replications
+	"REPLICAOF": handleReplicaOf,
+	"INFO":      Info,
 }
