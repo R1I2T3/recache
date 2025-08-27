@@ -39,8 +39,8 @@ func Save(path string, kv *kv.KV) error {
 	if err := saveStreams(writer, kv); err != nil {
 		return fmt.Errorf("failed to save streams: %w", err)
 	}
-	if err := saveSortedSets(writer, kv); err != nil {
-		return fmt.Errorf("failed to save sorted sets: %w", err)
+	if err := saveSortedSrings(writer, kv); err != nil {
+		return fmt.Errorf("failed to save sorted Srings: %w", err)
 	}
 	if err := writeFooter(writer, buf, hasher); err != nil {
 		return fmt.Errorf("failed to write rdb footer: %w", err)
@@ -68,8 +68,8 @@ func SaveToBuffer(kv *kv.KV) ([]byte, error) {
 	if err := saveStreams(writer, kv); err != nil {
 		return nil, fmt.Errorf("failed to save streams: %w", err)
 	}
-	if err := saveSortedSets(writer, kv); err != nil {
-		return nil, fmt.Errorf("failed to save sorted sets: %w", err)
+	if err := saveSortedSrings(writer, kv); err != nil {
+		return nil, fmt.Errorf("failed to save sorted Srings: %w", err)
 	}
 	if _, err := writer.Write([]byte{OpCodeEOF}); err != nil {
 		return nil, fmt.Errorf("failed to write rdb eof marker: %w", err)
@@ -99,10 +99,10 @@ func writeFooter(writer io.Writer, buf *bufio.Writer, hasher hash.Hash64) error 
 }
 
 func saveStrings(writer io.Writer, kv *kv.KV) error {
-	kv.SETsMu.RLock()
-	defer kv.SETsMu.RUnlock()
+	kv.StringsMu.RLock()
+	defer kv.StringsMu.RUnlock()
 
-	for key, value := range kv.SETs {
+	for key, value := range kv.Strings {
 		if _, err := writer.Write([]byte{OpCodeString}); err != nil {
 			return err
 		}
@@ -202,7 +202,7 @@ func saveStreams(writer io.Writer, kv *kv.KV) error {
 	return nil
 }
 
-func saveSortedSets(writer io.Writer, kv *kv.KV) error {
+func saveSortedSrings(writer io.Writer, kv *kv.KV) error {
 	kv.SortedsMu.RLock()
 	defer kv.SortedsMu.RUnlock()
 

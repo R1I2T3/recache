@@ -54,8 +54,8 @@ type ClientType struct {
 }
 
 type KV struct {
-	SETs   map[string]resp.Value
-	SETsMu sync.RWMutex
+	Strings   map[string]resp.Value
+	StringsMu sync.RWMutex
 
 	Lists   map[string][]resp.Value
 	ListsMu sync.RWMutex
@@ -65,6 +65,9 @@ type KV struct {
 
 	Streams   map[string]*Stream
 	StreamsMu sync.RWMutex
+
+	Sets   map[string]map[*resp.Value]struct{}
+	SetsMu sync.RWMutex
 
 	Sorteds   map[string]map[string]float64
 	SortedsMu sync.RWMutex
@@ -82,13 +85,15 @@ type KV struct {
 func NewKv() *KV {
 
 	return &KV{
-		SETs:           map[string]resp.Value{},
+		Strings:        map[string]resp.Value{},
 		Hashes:         map[string]map[string]resp.Value{},
 		Lists:          map[string][]resp.Value{},
 		Streams:        map[string]*Stream{},
 		Sorteds:        map[string]map[string]float64{},
 		Clients:        map[string]*ClientType{},
 		BlockedClients: map[string][]*BlockedClient{},
+		Sets:           map[string]map[*resp.Value]struct{}{},
+		SetsMu:         sync.RWMutex{},
 		Versions:       map[string]uint64{},
 	}
 }

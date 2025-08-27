@@ -146,7 +146,7 @@ func (l *rdbLoader) loadStringObject() error {
 	if err != nil {
 		return err
 	}
-	l.kv.SETs[key] = resp.Value{Typ: "string", Str: val}
+	l.kv.Strings[key] = resp.Value{Typ: "string", Str: val}
 	return nil
 }
 

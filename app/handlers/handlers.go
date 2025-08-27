@@ -22,6 +22,13 @@ var Handlers = map[string]func([]resp.Value, *types.Server, *kv.ClientType) resp
 	"LPOP":   lpop,
 	"RPOP":   rpop,
 	"BLPOP":  blpop,
+	// Set commands
+	"SADD":     sadd,
+	"SMEMBERS": smembers,
+	"SREM":     srem,
+	"SCARD":    scard,
+	"SUNION":   sunion,
+	"SINTER":   sinter,
 	// Hash set command
 	"HSET":    hset,
 	"HGET":    hget,

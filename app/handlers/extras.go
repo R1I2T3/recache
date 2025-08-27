@@ -29,22 +29,42 @@ func typeRedis(val []resp.Value, server *types.Server, _ *kv.ClientType) resp.Va
 	}
 	key := val[0].Bulk
 	kv := server.KV
-	kv.SETsMu.RLock()
-	if _, ok := kv.SETs[key]; ok {
-		kv.SETsMu.RUnlock()
+	kv.StringsMu.RLock()
+	if _, ok := kv.Strings[key]; ok {
 		return resp.Value{Typ: "string", Str: "string"}
 	}
-	defer kv.SETsMu.RUnlock()
+	kv.StringsMu.RUnlock()
+
 	kv.HashesMu.RLock()
 	if _, ok := kv.Hashes[key]; ok {
-		kv.HashesMu.RUnlock()
 		return resp.Value{Typ: "string", Str: "hash"}
 	}
+	kv.HashesMu.RUnlock()
+
 	kv.ListsMu.RLock()
 	if _, ok := kv.Lists[key]; ok {
-		kv.ListsMu.RUnlock()
 		return resp.Value{Typ: "string", Str: "list"}
 	}
+	kv.ListsMu.RUnlock()
+
+	kv.SetsMu.RLock()
+	if _, ok := kv.Sets[key]; ok {
+		return resp.Value{Typ: "string", Str: "set"}
+	}
+	kv.SetsMu.RUnlock()
+
+	kv.SortedsMu.RLock()
+	if _, ok := kv.Sorteds[key]; ok {
+		return resp.Value{Typ: "string", Str: "zset"}
+	}
+	kv.SortedsMu.RUnlock()
+
+	kv.StreamsMu.RLock()
+	if _, ok := kv.Streams[key]; ok {
+		return resp.Value{Typ: "string", Str: "stream"}
+	}
+	kv.StreamsMu.RUnlock()
+
 	return resp.Value{Typ: "string", Str: "none"}
 }
 

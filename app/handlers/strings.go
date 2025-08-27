@@ -17,17 +17,17 @@ func get(val []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 	kv := server.KV
 	key := val[0].Bulk
 
-	kv.SETsMu.RLock()
-	value, ok := kv.SETs[key]
-	kv.SETsMu.RUnlock()
+	kv.StringsMu.RLock()
+	value, ok := kv.Strings[key]
+	kv.StringsMu.RUnlock()
 	if !ok {
 		return resp.Value{Typ: "null"}
 	}
 
 	if value.Expires > 0 && value.Expires < time.Now().UnixMilli() {
-		kv.SETsMu.Lock()
-		delete(kv.SETs, key)
-		kv.SETsMu.Unlock()
+		kv.StringsMu.Lock()
+		delete(kv.Strings, key)
+		kv.StringsMu.Unlock()
 		return resp.Value{Typ: "null"}
 	}
 	return resp.Value{Typ: "string", Str: value.Str}
@@ -79,9 +79,9 @@ func set(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 		}
 	}
 
-	kv.SETsMu.RLock()
-	oldVal, exists := kv.SETs[key]
-	kv.SETsMu.RUnlock()
+	kv.StringsMu.RLock()
+	oldVal, exists := kv.Strings[key]
+	kv.StringsMu.RUnlock()
 
 	switch setter {
 	case "NX":
@@ -102,9 +102,9 @@ func set(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 		expiration = time.Now().Add(time.Duration(px) * time.Millisecond).UnixMilli()
 	}
 	insert := resp.Value{Typ: "string", Str: newVal, Expires: expiration}
-	kv.SETsMu.Lock()
-	kv.SETs[key] = insert
-	kv.SETsMu.Unlock()
+	kv.StringsMu.Lock()
+	kv.Strings[key] = insert
+	kv.StringsMu.Unlock()
 	incrementVersion(key, server)
 	server.IncrementDirty()
 	if get {
@@ -125,13 +125,13 @@ func incr(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 	kv := server.KV
 	key := args[0].Bulk
 
-	kv.SETsMu.Lock()
-	defer kv.SETsMu.Unlock()
+	kv.StringsMu.Lock()
+	defer kv.StringsMu.Unlock()
 
-	value, exists := kv.SETs[key]
+	value, exists := kv.Strings[key]
 	if !exists || value.Str == "" {
 		value = resp.Value{Typ: "string", Str: "0"}
-		kv.SETs[key] = value
+		kv.Strings[key] = value
 	}
 
 	num, err := strconv.Atoi(value.Str)
@@ -141,7 +141,7 @@ func incr(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 
 	num++
 	value.Str = strconv.Itoa(num)
-	kv.SETs[key] = value
+	kv.Strings[key] = value
 	incrementVersion(key, server)
 	server.IncrementDirty()
 	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "INCR"}}, args...)}
