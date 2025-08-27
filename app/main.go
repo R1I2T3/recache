@@ -25,20 +25,10 @@ func main() {
 	dir := flag.String("dir", "/tmp", "data directory")
 	dbfileName := flag.String("dbfilename", "dump.rdb", "database file name")
 	portString := flag.String("port", "6379", "server port")
-	replicaof := flag.String("replicaof", "127.0.0.1:6379", "Replica host and port")
+	replicaof := flag.String("replicaof", "", "Replica host and port")
 	MasterHost := ""
 	MasterPort := 0
 	IsSlave := false
-	if *replicaof != "" {
-		parts := strings.Split(*replicaof, ":")
-		if len(parts) != 2 {
-			fmt.Println("Invalid replicaof format")
-			os.Exit(1)
-		}
-		MasterHost = parts[0]
-		MasterPort, _ = strconv.Atoi(parts[1])
-		IsSlave = true
-	}
 	flag.Parse()
 	port, err := strconv.Atoi(*portString)
 	if err != nil {
@@ -52,11 +42,27 @@ func main() {
 		RDBSaveChanges: 1,
 		PORT:           port,
 	}
-	path := fmt.Sprintf("%s/%s", config.Dir, config.DbFileName)
+	if *replicaof != "" {
+		parts := strings.Split(*replicaof, ":")
+		if len(parts) != 2 {
+			fmt.Println("Invalid replicaof format")
+			os.Exit(1)
+		}
+		MasterHost = parts[0]
+		MasterPort, _ = strconv.Atoi(parts[1])
+		IsSlave = true
+	}
 	server := NewServer(config, MasterHost, MasterPort, IsSlave)
-	rdb.Load(path, server.KV)
-	go rdb.StartRDBackgroundSave(server)
+	if *replicaof != "" {
+		go replication.StartReplication(server)
+	} else {
+		path := fmt.Sprintf("%s/%s", config.Dir, config.DbFileName)
+		rdb.Load(path, server.KV)
+		go rdb.StartRDBackgroundSave(server)
+
+	}
 	ListenAndServer(server)
+
 }
 
 func NewServer(conf *types.Config, MasterHost string, MasterPort int, IsSlave bool) *types.Server {
@@ -73,7 +79,7 @@ func NewServer(conf *types.Config, MasterHost string, MasterPort int, IsSlave bo
 		IsSlave:           IsSlave,
 		MasterHost:        MasterHost,
 		MasterPort:        MasterPort,
-		ConnectedReplicas: make(map[net.Conn]*replication.ReplicaInfo),
+		ConnectedReplicas: make(map[net.Conn]*types.ReplicaInfo),
 		ReplicasMutex:     sync.RWMutex{},
 		ReplicationID:     replication_id,
 		ReplicationOffset: 0,
@@ -81,9 +87,10 @@ func NewServer(conf *types.Config, MasterHost string, MasterPort int, IsSlave bo
 }
 
 func ListenAndServer(server *types.Server) {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Config.PORT))
+	port := server.Config.PORT
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		fmt.Println("Failed to bind to port", server.Config.PORT)
+		fmt.Println("Failed to bind to port", port)
 		os.Exit(1)
 	}
 	defer l.Close()

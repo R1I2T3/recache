@@ -47,6 +47,8 @@ func zadd(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 	sorted_set[value] = score
 	incrementVersion(key, server)
 	server.IncrementDirty()
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "ZADD"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "integer", Num: returns}
 }
 

@@ -46,6 +46,19 @@ func Load(path string, kv *kv.KV) error {
 	return nil
 }
 
+func LoadFromBuffer(data []byte, kv *kv.KV) error {
+	loader := newLoader(data, kv)
+
+	if err := loader.loadHeader(); err != nil {
+		return err
+	}
+	if err := loader.loadData(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func readFileAndVerifyChecksum(path string) ([]byte, error) {
 	file, err := os.Open(path)
 

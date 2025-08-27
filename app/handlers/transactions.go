@@ -112,6 +112,9 @@ func HandleNonTransactionCommands(command string, args []resp.Value, writer *wri
 		writer.Write(result)
 		return true
 	}
+	if command == "PSYNC" {
+		HandlePsync(args, server, client)
+	}
 	handler, ok := Handlers[command]
 	if !ok {
 		err := writer.Write(resp.Value{Typ: "string", Str: ""})

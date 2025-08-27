@@ -2,6 +2,7 @@ package rdb
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash"
@@ -45,6 +46,41 @@ func Save(path string, kv *kv.KV) error {
 		return fmt.Errorf("failed to write rdb footer: %w", err)
 	}
 	return buf.Flush()
+}
+
+func SaveToBuffer(kv *kv.KV) ([]byte, error) {
+	var buf bytes.Buffer
+	hasher := crc64.New(crc64.MakeTable(crc64.ISO))
+	writer := io.MultiWriter(&buf, hasher)
+
+	if err := writeHeader(writer); err != nil {
+		return nil, fmt.Errorf("failed to write rdb header: %w", err)
+	}
+	if err := saveStrings(writer, kv); err != nil {
+		return nil, fmt.Errorf("failed to save strings: %w", err)
+	}
+	if err := saveLists(writer, kv); err != nil {
+		return nil, fmt.Errorf("failed to save lists: %w", err)
+	}
+	if err := saveHashes(writer, kv); err != nil {
+		return nil, fmt.Errorf("failed to save hashes: %w", err)
+	}
+	if err := saveStreams(writer, kv); err != nil {
+		return nil, fmt.Errorf("failed to save streams: %w", err)
+	}
+	if err := saveSortedSets(writer, kv); err != nil {
+		return nil, fmt.Errorf("failed to save sorted sets: %w", err)
+	}
+	if _, err := writer.Write([]byte{OpCodeEOF}); err != nil {
+		return nil, fmt.Errorf("failed to write rdb eof marker: %w", err)
+	}
+
+	checksum := hasher.Sum64()
+	if err := binary.Write(&buf, binary.BigEndian, checksum); err != nil {
+		return nil, fmt.Errorf("failed to write rdb checksum: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 func writeHeader(writer io.Writer) error {

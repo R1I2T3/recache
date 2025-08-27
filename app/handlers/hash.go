@@ -21,6 +21,8 @@ func hset(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 	server.KV.Hashes[key][field] = resp.Value{Typ: "bulk", Bulk: value}
 	incrementVersion(key, server)
 	server.IncrementDirty()
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "HSET"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "integer", Num: 1}
 }
 
@@ -56,6 +58,8 @@ func hdel(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 			return resp.Value{Typ: "integer", Num: 1}
 		}
 	}
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "HDEL"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "integer", Num: 0}
 }
 

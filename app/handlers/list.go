@@ -29,6 +29,8 @@ func rpush(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value
 	}
 	incrementVersion(key, server)
 	server.IncrementDirty()
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "RPUSH"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "integer", Num: length}
 }
 
@@ -84,6 +86,8 @@ func lpush(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value
 	}
 	incrementVersion(key, server)
 	server.IncrementDirty()
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "LPUSH"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "integer", Num: length}
 }
 
@@ -135,6 +139,8 @@ func lpop(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 	kv.Lists[key] = list[num_pop:]
 	incrementVersion(key, server)
 	server.IncrementDirty()
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "LPOP"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "array", Array: values}
 }
 
@@ -177,6 +183,8 @@ func rpop(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 	kv.Lists[key] = list[:start]
 	incrementVersion(key, server)
 	server.IncrementDirty()
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "RPOP"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "array", Array: values}
 }
 
@@ -203,6 +211,8 @@ RetryPop:
 			kV.ListsMu.Unlock()
 			incrementVersion(key, server)
 			server.IncrementDirty()
+			cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "BLPOP"}}, args...)}
+			server.Propagate(cmd)
 			return resp.Value{Typ: "array", Array: []resp.Value{
 				{Typ: "bulk", Bulk: key},
 				val,
@@ -225,5 +235,6 @@ RetryPop:
 		goto RetryPop
 
 	}
+
 	return resp.Value{Typ: "null"}
 }

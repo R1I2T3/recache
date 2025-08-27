@@ -113,7 +113,8 @@ func set(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value {
 		}
 		return resp.Value{Typ: "null"}
 	}
-
+	setCMD := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "SET"}}, args...)}
+	server.Propagate(setCMD)
 	return resp.Value{Typ: "string", Str: "OK"}
 }
 
@@ -143,5 +144,7 @@ func incr(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 	kv.SETs[key] = value
 	incrementVersion(key, server)
 	server.IncrementDirty()
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "INCR"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "string", Str: value.Str}
 }

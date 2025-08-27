@@ -47,6 +47,8 @@ func xadd(args []resp.Value, server *types.Server, _ *kv.ClientType) resp.Value 
 	incrementVersion(key, server)
 	server.IncrementDirty()
 	kV.WakeUpClients(key, true)
+	cmd := resp.Value{Typ: "array", Array: append([]resp.Value{{Typ: "bulk", Bulk: "XADD"}}, args...)}
+	server.Propagate(cmd)
 	return resp.Value{Typ: "bulk", Bulk: id.ToString()}
 }
 

@@ -37,7 +37,7 @@ type RespError struct {
 }
 
 type Parser struct {
-	r       *bufio.Reader
+	Reader  *bufio.Reader
 	maxLine int
 }
 
@@ -47,13 +47,13 @@ func (e RespError) Error() string {
 
 func NewParser(rd io.Reader) *Parser {
 	return &Parser{
-		r:       bufio.NewReader(rd),
+		Reader:  bufio.NewReader(rd),
 		maxLine: 512 * 1024,
 	}
 }
 
 func (p *Parser) Parse() (Value, error) {
-	prefix, err := p.r.ReadByte()
+	prefix, err := p.Reader.ReadByte()
 	if err != nil {
 		return Value{}, err
 	}
@@ -114,7 +114,7 @@ func (p *Parser) parseBulkString() (Value, error) {
 		return Value{}, nil
 	}
 	buf := make([]byte, n)
-	if _, err := io.ReadFull(p.r, buf); err != nil {
+	if _, err := io.ReadFull(p.Reader, buf); err != nil {
 		return Value{}, ErrShortBulk
 	}
 	if err := p.expectCRLF(); err != nil {
@@ -149,7 +149,7 @@ func (p *Parser) parseArray() (Value, error) {
 func (p *Parser) readLine() (string, error) {
 	var b []byte
 	for {
-		part, isPrefix, err := p.r.ReadLine()
+		part, isPrefix, err := p.Reader.ReadLine()
 		if err != nil {
 			return "", nil
 		}
@@ -165,11 +165,11 @@ func (p *Parser) readLine() (string, error) {
 }
 
 func (d *Parser) expectCRLF() error {
-	c1, err := d.r.ReadByte()
+	c1, err := d.Reader.ReadByte()
 	if err != nil {
 		return err
 	}
-	c2, err := d.r.ReadByte()
+	c2, err := d.Reader.ReadByte()
 	if err != nil {
 		return err
 	}
@@ -177,4 +177,26 @@ func (d *Parser) expectCRLF() error {
 		return fmt.Errorf("resp: expected CRLF")
 	}
 	return nil
+}
+
+func (p *Parser) ParseRDBLength() (int, error) {
+	prefix, err := p.Reader.ReadByte()
+	if err != nil {
+		return 0, err
+	}
+	if prefix != '$' {
+		return 0, fmt.Errorf("expected '$' prefix for RDB length, but got '%c'", prefix)
+	}
+
+	lengthBytes, err := p.Reader.ReadBytes('\n')
+	if err != nil {
+		return 0, err
+	}
+	lengthStr := string(lengthBytes[:len(lengthBytes)-2])
+	length, err := strconv.Atoi(lengthStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid RDB length format: %w", err)
+	}
+
+	return length, nil
 }
